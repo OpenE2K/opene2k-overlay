@@ -1,0 +1,13 @@
+diff --git a/Modules/_hacl/libintvector.h b/Modules/_hacl/libintvector.h
+index 6db5253..00fbb48 100644
+--- a/Modules/_hacl/libintvector.h
++++ b/Modules/_hacl/libintvector.h
+@@ -21,7 +21,7 @@
+ 
+ #define Lib_IntVector_Intrinsics_bit_mask64(x) -((x) & 1)
+ 
+-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
++#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86) || defined(__e2k__)
+ 
+ #if defined(HACL_CAN_COMPILE_VEC128)
+ 
