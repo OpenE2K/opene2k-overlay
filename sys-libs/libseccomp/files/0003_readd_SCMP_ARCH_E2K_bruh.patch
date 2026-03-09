@@ -1,0 +1,16 @@
+diff --git a/include/seccomp.h b/include/seccomp.h
+index d407a51..b7700d9 100644
+--- a/include/seccomp.h
++++ b/include/seccomp.h
+@@ -204,6 +204,11 @@ struct scmp_arg_cmp {
+ #define SCMP_ARCH_PARISC	AUDIT_ARCH_PARISC
+ #define SCMP_ARCH_PARISC64	AUDIT_ARCH_PARISC64
+ 
++/**
++ * The E2K architecture tokens
++ */
++#define SCMP_ARCH_E2K		AUDIT_ARCH_E2K
++
+ /**
+  * The RISC-V architecture tokens
+  */
