@@ -1,0 +1,70 @@
+diff --git a/lib/common/xxhash.h b/lib/common/xxhash.h
+index 8ebbfdd..e0bf01a 100644
+--- a/lib/common/xxhash.h
++++ b/lib/common/xxhash.h
+@@ -1752,6 +1752,13 @@ static int XXH_isLittleEndian(void)
+ #elif defined(_MSC_VER)
+ #  define XXH_rotl32(x,r) _rotl(x,r)
+ #  define XXH_rotl64(x,r) _rotl64(x,r)
++#elif defined(__e2k__)
++#  define XXH_rotl32(x,r) __builtin_e2k_scls(x,r)
++  #if __iset__ < 5
++  #  define XXH_rotl64(x,r) __builtin_e2k_scld(x,r)
++  #else
++  #  define XXH_rotl64(x,r) __builtin_e2k_psrcd(x,64-(r))
++  #endif
+ #else
+ #  define XXH_rotl32(x,r) (((x) << (r)) | ((x) >> (32 - (r))))
+ #  define XXH_rotl64(x,r) (((x) << (r)) | ((x) >> (64 - (r))))
+@@ -2401,7 +2408,11 @@ XXH_readLE64_align(const void* ptr, XXH_alignment align)
+ 
+ static xxh_u64 XXH64_round(xxh_u64 acc, xxh_u64 input)
+ {
++#ifndef __e2k__
+     acc += input * XXH_PRIME64_2;
++#else
++    acc = __builtin_e2k_paddd(acc, input * XXH_PRIME64_2);
++#endif
+     acc  = XXH_rotl64(acc, 31);
+     acc *= XXH_PRIME64_1;
+     return acc;
+@@ -2433,6 +2444,7 @@ XXH64_finalize(xxh_u64 h64, const xxh_u8* ptr, size_t len, XXH_alignment align)
+ {
+     if (ptr==NULL) XXH_ASSERT(len == 0);
+     len &= 31;
++#pragma loop count(3)
+     while (len >= 8) {
+         xxh_u64 const k1 = XXH64_round(0, XXH_get64bits(ptr));
+         ptr += 8;
+@@ -2446,6 +2458,7 @@ XXH64_finalize(xxh_u64 h64, const xxh_u8* ptr, size_t len, XXH_alignment align)
+         h64 = XXH_rotl64(h64, 23) * XXH_PRIME64_2 + XXH_PRIME64_3;
+         len -= 4;
+     }
++#pragma loop count(3)
+     while (len > 0) {
+         h64 ^= (*ptr++) * XXH_PRIME64_5;
+         h64 = XXH_rotl64(h64, 11) * XXH_PRIME64_1;
+@@ -2478,7 +2491,11 @@ XXH64_endian_align(const xxh_u8* input, size_t len, xxh_u64 seed, XXH_alignment
+         xxh_u64 v3 = seed + 0;
+         xxh_u64 v4 = seed - XXH_PRIME64_1;
+ 
++#pragma loop count(1000)
+         do {
++#if defined(__e2k__) && __iset__ < 5
++            __builtin_prefetch(input+192);
++#endif
+             v1 = XXH64_round(v1, XXH_get64bits(input)); input+=8;
+             v2 = XXH64_round(v2, XXH_get64bits(input)); input+=8;
+             v3 = XXH64_round(v3, XXH_get64bits(input)); input+=8;
+diff --git a/lib/compress/fse_compress.c b/lib/compress/fse_compress.c
+index 5547b4a..da234a2 100644
+--- a/lib/compress/fse_compress.c
++++ b/lib/compress/fse_compress.c
+@@ -298,6 +298,7 @@ FSE_writeNCount_generic (void* header, size_t headerBufferSize,
+             bitCount  -= (count<max);
+             previousIs0  = (count==1);
+             if (remaining<1) return ERROR(GENERIC);
++#pragma loop count(10)
+             while (remaining<threshold) { nbBits--; threshold>>=1; }
+         }
+         if (bitCount>16) {
