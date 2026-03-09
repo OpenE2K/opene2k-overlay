@@ -1,0 +1,3 @@
+# Install MCST lcc compilers
+sys-devel/lcc-libs-bin
+sys-devel/lcc-bin

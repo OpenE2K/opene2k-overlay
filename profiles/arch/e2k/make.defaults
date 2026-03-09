@@ -1,0 +1,23 @@
+ARCH="e2k"
+ACCEPT_KEYWORDS="e2k ~e2k"
+
+# set -O3 by default as it's recommended by e2k devs
+CFLAGS="-O3 -pipe"
+CXXFLAGS="${CFLAGS}"
+FFLAGS="${CFLAGS}"
+FCFLAGS="${CFLAGS}"
+
+# This is the CHOST that's accepted by binutils port
+CHOST="e2k-mcst-linux-gnu"
+
+# here we define target CPU
+# it's not really an ABI, but more an ISA level
+# Supported (from what I have and personally use):
+# - e4c
+DEFAULT_ABI="e4c"
+MULTILIB_ABIS="e4c"
+ABI="e4c"
+
+CFLAGS_e4c="-march=elbrus-v3 -mtune=elbrus-4c"
+LDFLAGS_e4c=""
+LIBDIR_e4c="lib64"

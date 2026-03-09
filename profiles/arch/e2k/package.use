@@ -1,0 +1,3 @@
+# PCRE has no JIT for E2K
+dev-libs/libpcre  -jit
+dev-libs/libpcre2 -jit
