@@ -1,0 +1,44 @@
+From 5320fddda89666dddd851bc54b851f4d22c69853 Mon Sep 17 00:00:00 2001
+From: Alexander Troosh <trush@yandex.ru>
+Date: Mon, 1 Sep 2025 21:27:59 +0300
+Subject: [PATCH 06/10] bn_lib.c: Special-case the BN_num_bits_word function
+ for the Elbrus2000 arch
+
+Co-authored-by:	Gleb Popov <arrowd@FreeBSD.org>
+---
+ crypto/bn/bn_lib.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/crypto/bn/bn_lib.c b/crypto/bn/bn_lib.c
+index 93d54fd0a6..8483205052 100644
+--- a/crypto/bn/bn_lib.c
++++ b/crypto/bn/bn_lib.c
+@@ -89,6 +89,7 @@ const BIGNUM *BN_value_one(void)
+     return &const_one;
+ }
+ 
++#ifndef __e2k__
+ /*
+  * Old Visual Studio ARM compiler miscompiles BN_num_bits_word()
+  * https://mta.openssl.org/pipermail/openssl-users/2018-August/008465.html
+@@ -145,6 +146,17 @@ int BN_num_bits_word(BN_ULONG l)
+ #ifdef MS_BROKEN_BN_num_bits_word
+ #pragma optimize("", on)
+ #endif
++#else // __e2k__
++#include <x86gprintrin.h>
++int BN_num_bits_word(BN_ULONG l)
++{
++#if BN_BITS2 > 32
++    return 64 - __builtin_clzll(l);
++#else
++    return 32 - __builtin_clz(l);
++#endif
++}
++#endif // __e2k__
+ 
+ /*
+  * This function still leaks `a->dmax`: it's caller's responsibility to
+-- 
+2.50.1
+

@@ -1,0 +1,40 @@
+From be44154a90aa9cbde36cc9f937f544cf9eb1393d Mon Sep 17 00:00:00 2001
+From: Gleb Popov <6yearold@gmail.com>
+Date: Thu, 28 Aug 2025 13:23:04 +0300
+Subject: [PATCH 01/10] Configurations: Add configurations for the Elbrus2000
+ architecture
+
+---
+ Configurations/50-e2k.conf | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+ create mode 100644 Configurations/50-e2k.conf
+
+diff --git a/Configurations/50-e2k.conf b/Configurations/50-e2k.conf
+new file mode 100644
+index 0000000000..8bcad65087
+--- /dev/null
++++ b/Configurations/50-e2k.conf
+@@ -0,0 +1,20 @@
++## -*- mode: perl; -*-
++(
++    "linux-e2k" => {
++        inherit_from    => [ "linux-generic64" ],
++        cflags          => add("-m64"),
++        cxxflags        => add("-m64"),
++        lib_cppflags    => add("-DL_ENDIAN"),
++        multilib        => "64",
++        bn_ops          => "SIXTY_FOUR_BIT_LONG",
++        asm_arch        => "e2k",
++    },
++    "linux-e2kv6" => {
++        inherit_from    => [ "linux-e2k" ],
++        asm_arch        => "e2kv6",
++    },
++    "linux-e2kv7" => {
++        inherit_from    => [ "linux-e2k" ],
++        asm_arch        => "e2kv7",
++    },
++);
+-- 
+2.50.1
+

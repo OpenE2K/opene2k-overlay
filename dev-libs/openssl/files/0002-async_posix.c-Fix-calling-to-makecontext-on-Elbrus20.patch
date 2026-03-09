@@ -1,0 +1,41 @@
+From 2a91dc6aaa828849e7af2d654dbf14a7604b7146 Mon Sep 17 00:00:00 2001
+From: Gleb Popov <6yearold@gmail.com>
+Date: Thu, 28 Aug 2025 13:28:07 +0300
+Subject: [PATCH 02/10] async_posix.c: Fix calling to makecontext() on
+ Elbrus2000
+
+makecontext() allocates memory on e2k, thus it may fail in OOM conditions.
+To underline this fact, the function was renamed to have a suffix.
+---
+ crypto/async/arch/async_posix.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/crypto/async/arch/async_posix.c b/crypto/async/arch/async_posix.c
+index 46e2ce7559..3838fc6d01 100644
+--- a/crypto/async/arch/async_posix.c
++++ b/crypto/async/arch/async_posix.c
+@@ -116,7 +116,11 @@ int async_fibre_makecontext(async_fibre *fibre)
+         if (fibre->fibre.uc_stack.ss_sp != NULL) {
+             fibre->fibre.uc_stack.ss_size = num;
+             fibre->fibre.uc_link = NULL;
++#ifndef __e2k__
+             makecontext(&fibre->fibre, async_start_func, 0);
++#else
++            makecontext_e2k(&fibre->fibre, async_start_func, 0);
++#endif
+             return 1;
+         }
+     } else {
+@@ -129,6 +133,9 @@ void async_fibre_free(async_fibre *fibre)
+ {
+     stack_free_impl(fibre->fibre.uc_stack.ss_sp);
+     fibre->fibre.uc_stack.ss_sp = NULL;
++#ifdef __e2k__
++    freecontext_e2k(&fibre->fibre);
++#endif
+ }
+ 
+ #endif
+-- 
+2.50.1
+

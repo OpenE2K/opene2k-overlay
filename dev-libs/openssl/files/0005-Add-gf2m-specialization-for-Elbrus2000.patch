@@ -1,0 +1,62 @@
+From 0851e5c9555deb6a21ac66e66a666df13f9d1ea8 Mon Sep 17 00:00:00 2001
+From: Gleb Popov <6yearold@gmail.com>
+Date: Mon, 1 Sep 2025 20:54:47 +0300
+Subject: [PATCH 05/10] Add gf2m specialization for Elbrus2000
+
+---
+ crypto/bn/asm/e2kv6-gf2m.c | 26 ++++++++++++++++++++++++++
+ crypto/bn/build.info       |  5 +++++
+ 2 files changed, 31 insertions(+)
+ create mode 100644 crypto/bn/asm/e2kv6-gf2m.c
+
+diff --git a/crypto/bn/asm/e2kv6-gf2m.c b/crypto/bn/asm/e2kv6-gf2m.c
+new file mode 100644
+index 0000000000..6749649214
+--- /dev/null
++++ b/crypto/bn/asm/e2kv6-gf2m.c
+@@ -0,0 +1,26 @@
++#include <e2kintrin.h>
++
++#include "../bn_local.h"
++
++void bn_GF2m_mul_2x2(BN_ULONG *r, const BN_ULONG a1, const BN_ULONG a0,
++                     const BN_ULONG b1, const BN_ULONG b0)
++{
++    BN_ULONG m1, m0;
++
++    /* r[3] = h1, r[2] = h0; r[1] = l1; r[0] = l0 */
++    /*      bn_GF2m_mul_1x1(r + 3, r + 2, a1, b1); */
++    r[3] = __builtin_e2k_clmulh(a1, b1);
++    r[2] = __builtin_e2k_clmull(a1, b1);
++    /*      bn_GF2m_mul_1x1(r + 1, r, a0, b0); */
++    r[1] = __builtin_e2k_clmulh(a0, b0);
++    r[0] = __builtin_e2k_clmull(a0, b0);
++    /*      bn_GF2m_mul_1x1(&m1, &m0, a0 ^ a1, b0 ^ b1); */
++    m1 = __builtin_e2k_clmulh(a0 ^ a1, b0 ^ b1);
++    m0 = __builtin_e2k_clmull(a0 ^ a1, b0 ^ b1);
++
++    /* Correction on m1 ^= l1 ^ h1; m0 ^= l0 ^ h0; */
++    /*      r[2] ^= m1 ^ r[1] ^ r[3];               h0 ^= m1 ^ l1 ^ h1; */
++    r[2] ^= __builtin_e2k_plog (0x96, m1, r[1], r[3]);
++    /*      r[1] = r[3] ^ r[2] ^ r[0] ^ m1 ^ m0;    l1 ^= l0 ^ h0 ^ m0; */
++    r[1] = __builtin_e2k_plog (0x96, r[3], r[2], __builtin_e2k_plog (0x96, r[0], m1, m0));
++}
+diff --git a/crypto/bn/build.info b/crypto/bn/build.info
+index a82271136c..b3aaf50e6c 100644
+--- a/crypto/bn/build.info
++++ b/crypto/bn/build.info
+@@ -87,6 +87,11 @@ IF[{- !$disabled{asm} -}]
+   $BNASM_c64xplus_ec2m=c64xplus-gf2m.s
+   $BNDEF_c64xplus_ec2m=OPENSSL_BN_ASM_GF2m
+ 
++  $BNASM_e2kv6=asm/e2kv6-gf2m.c
++  $BNDEF_e2kv6=OPENSSL_BN_ASM_GF2m
++  $BNASM_e2kv7=asm/e2kv6-gf2m.c
++  $BNDEF_e2kv7=OPENSSL_BN_ASM_GF2m
++
+   # Now that we have defined all the arch specific variables, use the
+   # appropriate ones, and define the appropriate macros
+   IF[$BNASM_{- $target{asm_arch} -}]
+-- 
+2.50.1
+

@@ -1,0 +1,29 @@
+From d7489c6256660e319c30bc760001d9a30ab10cfc Mon Sep 17 00:00:00 2001
+From: Gleb Popov <6yearold@gmail.com>
+Date: Thu, 28 Aug 2025 14:19:50 +0300
+Subject: [PATCH 04/10] md32_common.h: Add Elbrus2000-specific version of
+ ROTATE
+
+---
+ include/crypto/md32_common.h | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/include/crypto/md32_common.h b/include/crypto/md32_common.h
+index 6cc60d8d0d..7c7fba46f8 100644
+--- a/include/crypto/md32_common.h
++++ b/include/crypto/md32_common.h
+@@ -115,6 +115,11 @@
+                        asm ("rori %0, %1, %2"         \
+                        : "=r"(ret)                    \
+                        : "r"(x), "i"(32 - (n))); ret; })
++#elif defined(__e2k__)
++#undef ROTATE
++#define ROTATE(a,n)  ( (__builtin_constant_p(n) && (n) > 16) \
++                       ? __builtin_e2k_scrs((a), 32 - (n))   \
++                       : __builtin_e2k_scls((a),      (n))   )
+ #endif
+ #endif
+ #endif
+-- 
+2.50.1
+
