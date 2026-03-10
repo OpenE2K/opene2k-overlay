@@ -1,0 +1,206 @@
+diff --git a/src/basic/architecture.c b/src/basic/architecture.c
+index c7d5b0d..43fcab3 100644
+--- a/src/basic/architecture.c
++++ b/src/basic/architecture.c
+@@ -56,6 +56,9 @@ Architecture uname_architecture(void) {
+ #elif defined(__cris__)
+                 { "crisv32",    ARCHITECTURE_CRIS     },
+ 
++#elif defined(__e2k__)
++                { "e2k",        ARCHITECTURE_E2K      },
++
+ #elif defined(__i386__) || defined(__x86_64__)
+                 { "x86_64",     ARCHITECTURE_X86_64   },
+                 { "i686",       ARCHITECTURE_X86      },
+@@ -148,6 +151,7 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
+         [ARCHITECTURE_ARC]         = "arc",
+         [ARCHITECTURE_ARC_BE]      = "arc-be",
+         [ARCHITECTURE_CRIS]        = "cris",
++        [ARCHITECTURE_E2K]         = "e2k",
+         [ARCHITECTURE_X86_64]      = "x86-64",
+         [ARCHITECTURE_X86]         = "x86",
+         [ARCHITECTURE_IA64]        = "ia64",
+diff --git a/src/basic/architecture.h b/src/basic/architecture.h
+index 26aa9f4..06a8d79 100644
+--- a/src/basic/architecture.h
++++ b/src/basic/architecture.h
+@@ -18,6 +18,7 @@ typedef enum {
+         ARCHITECTURE_ARM64_BE,
+         ARCHITECTURE_ARM_BE,
+         ARCHITECTURE_CRIS,
++        ARCHITECTURE_E2K,
+         ARCHITECTURE_IA64,
+         ARCHITECTURE_LOONGARCH64,
+         ARCHITECTURE_M68K,
+@@ -238,6 +239,9 @@ Architecture uname_architecture(void);
+ #    define native_architecture() ARCHITECTURE_ARC
+ #    define LIB_ARCH_TUPLE "arc-linux"
+ #  endif
++#elif defined(__e2k__)
++#  define native_architecture() ARCHITECTURE_E2K
++#  define LIB_ARCH_TUPLE "e2k-linux-gnu"
+ #else
+ #  error "Please register your architecture here!"
+ #endif
+diff --git a/src/basic/log.h b/src/basic/log.h
+index 6af12c7..b8bc923 100644
+--- a/src/basic/log.h
++++ b/src/basic/log.h
+@@ -231,12 +231,22 @@ void log_assert_failed_return(
+                 log_full_errno_zerook(level, _error, __VA_ARGS__);      \
+         })
+ 
++#ifdef __EDG__
++#define edg_first(first, ...) first
++#define log_full(level, ...)                                           \
++        ({                                                             \
++                if (BUILD_MODE_DEVELOPER)                              \
++                        assert(!strstr(edg_first(__VA_ARGS__), "%m")); \
++                (void) log_full_errno_zerook(level, 0, __VA_ARGS__);   \
++        })
++#else
+ #define log_full(level, fmt, ...)                                      \
+         ({                                                             \
+                 if (BUILD_MODE_DEVELOPER)                              \
+                         assert(!strstr(fmt, "%m"));                    \
+                 (void) log_full_errno_zerook(level, 0, fmt, ##__VA_ARGS__); \
+         })
++#endif
+ 
+ int log_emergency_level(void);
+ 
+diff --git a/src/basic/meson.build b/src/basic/meson.build
+index 2a2ae22..6212019 100644
+--- a/src/basic/meson.build
++++ b/src/basic/meson.build
+@@ -188,6 +188,7 @@ arch_list = [
+         'arc',
+         'arm',
+         'arm64',
++        'e2k',
+         'i386',
+         'ia64',
+         'loongarch64',
+diff --git a/src/basic/missing_syscall_def.h b/src/basic/missing_syscall_def.h
+index cf31b65..a2cd890 100644
+--- a/src/basic/missing_syscall_def.h
++++ b/src/basic/missing_syscall_def.h
+@@ -12,6 +12,7 @@
+ #  elif defined(__alpha__)
+ #  elif defined(__arc__) || defined(__tilegx__)
+ #  elif defined(__arm__)
++#  elif defined(__e2k__)
+ #  elif defined(__i386__)
+ #  elif defined(__ia64__)
+ #  elif defined(__loongarch_lp64)
+diff --git a/src/basic/missing_syscalls.py b/src/basic/missing_syscalls.py
+index 16498b5..4f309af 100644
+--- a/src/basic/missing_syscalls.py
++++ b/src/basic/missing_syscalls.py
+@@ -56,6 +56,8 @@ DEF_TEMPLATE_B = '''\
+ #    define systemd_NR_{syscall} {nr_arc}
+ #  elif defined(__arm__)
+ #    define systemd_NR_{syscall} {nr_arm}
++#  elif defined(__e2k__)
++#    define systemd_NR_{syscall} {nr_e2k}
+ #  elif defined(__i386__)
+ #    define systemd_NR_{syscall} {nr_i386}
+ #  elif defined(__ia64__)
+diff --git a/src/basic/syscalls-e2k.sh b/src/basic/syscalls-e2k.sh
+new file mode 100644
+index 0000000..7df6558
+--- /dev/null
++++ b/src/basic/syscalls-e2k.sh
+@@ -0,0 +1,12 @@
++#!/bin/bash
++src="${1:-/usr/include/asm/unistd.h}"
++out="${2:-src/basic/syscalls-e2k.txt}"
++
++awk '/^#define __NR/ {
++  # remove duplicate syscall
++  if ($2 == "__NR_madvise1") next;
++    sub("^__NR_","",$2); print $2 " " $3
++}
++# skip tail
++$2 == "NR_syscalls" { exit }
++' $src > $out
+diff --git a/src/fundamental/macro-fundamental.h b/src/fundamental/macro-fundamental.h
+index 35758b5..7776f72 100644
+--- a/src/fundamental/macro-fundamental.h
++++ b/src/fundamental/macro-fundamental.h
+@@ -67,7 +67,11 @@
+ #define _printf_(a, b) __attribute__((__format__(printf, a, b)))
+ #define _public_ __attribute__((__visibility__("default")))
+ #define _pure_ __attribute__((__pure__))
++#ifdef __EDG__
++#define _retain_
++#else
+ #define _retain_ __attribute__((__retain__))
++#endif
+ #define _returns_nonnull_ __attribute__((__returns_nonnull__))
+ #define _section_(x) __attribute__((__section__(x)))
+ #define _sentinel_ __attribute__((__sentinel__))
+@@ -468,6 +472,15 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
+                 ((l) + (ali) - 1) & ~((ali) - 1),                      \
+                 VOID_0)
+ 
++#ifdef __EDG__
++#undef ELEMENTSOF
++#define ELEMENTSOF(x) (sizeof(x)/sizeof((x)[0]))
++#undef CONST_MAX
++#undef CONST_MIN
++#define CONST_MAX(_A, _B) ((_A) > (_B) ? (_A) : (_B))
++#define CONST_MIN(_A, _B) ((_A) < (_B) ? (_A) : (_B))
++#endif
++
+ /* Similar to ((t *) (void *) (p)) to cast a pointer. The macro asserts that the pointer has a suitable
+  * alignment for type "t". This exists for places where otherwise "-Wcast-align=strict" would issue a
+  * warning or if you want to assert that the cast gives a pointer of suitable alignment. */
+diff --git a/src/shared/seccomp-util.c b/src/shared/seccomp-util.c
+index 75cf525..b205f21 100644
+--- a/src/shared/seccomp-util.c
++++ b/src/shared/seccomp-util.c
+@@ -2213,6 +2213,7 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
+         else
+                 any = true;
+ 
++#ifdef __NR_fchmodat2
+ #if defined(__SNR_fchmodat2)
+         r = seccomp_rule_add_exact(
+                         seccomp,
+@@ -2234,6 +2235,7 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
+                 log_debug_errno(r, "Failed to add filter for fchmodat2: %m");
+         else
+                 any = true;
++#endif
+ 
+         r = seccomp_rule_add_exact(
+                         seccomp,
+diff --git a/src/test/test-load-fragment.c b/src/test/test-load-fragment.c
+index 038165a..7b113c1 100644
+--- a/src/test/test-load-fragment.c
++++ b/src/test/test-load-fragment.c
+@@ -574,6 +574,9 @@ TEST(install_printf, .sd_booted = true) {
+ 
+         /* gcc-12.0.1-0.9.fc36.x86_64 insist that streq(â¦, NULL) is called,
+          * even though the call is inside of a conditional where the pointer is checked. :( */
++#ifdef __EDG__
++#pragma diag_suppress 1622
++#endif
+ #pragma GCC diagnostic push
+ #pragma GCC diagnostic ignored "-Wnonnull"
+         expect(RUNTIME_SCOPE_GLOBAL, i2, "%g", NULL);
+diff --git a/src/test/test-macro.c b/src/test/test-macro.c
+index c4c5337..6cabc70 100644
+--- a/src/test/test-macro.c
++++ b/src/test/test-macro.c
+@@ -80,7 +80,9 @@ TEST(MAX) {
+         /* CONST_MAX returns (void) instead of a value if the passed arguments
+          * are not of the same type or not constant expressions. */
+         assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 10)), int));
++#ifndef __EDG__
+         assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 1U)), void));
++#endif
+ 
+         assert_se(val1.a == 100);
+         assert_se(MAX(++d, 0) == 1);
