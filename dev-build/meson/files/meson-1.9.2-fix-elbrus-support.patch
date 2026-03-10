@@ -1,0 +1,26 @@
+From d435758194d1327c0a7f0a077cea45e2b266d47d Mon Sep 17 00:00:00 2001
+From: Ilya Kurdyukov <59548320+ilyakurdyukov@users.noreply.github.com>
+Date: Thu, 5 Feb 2026 19:19:46 +0700
+Subject: [PATCH] fix Elbrus support
+
+Fix commit d37d649b08b832d52fa684bc0506829fb40d5261, which broke Elbrus support:
+
+   File "/usr/lib/python3/site-packages/mesonbuild/compilers/cpp.py", line 641, in get_option_compile_args
+     assert isinstance(debugstl, str)
+---
+ mesonbuild/compilers/cpp.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mesonbuild/compilers/cpp.py b/mesonbuild/compilers/cpp.py
+index e563365cc49e..acc2a3da289f 100644
+--- a/mesonbuild/compilers/cpp.py
++++ b/mesonbuild/compilers/cpp.py
+@@ -655,7 +655,7 @@ def get_option_compile_args(self, target: 'BuildTarget', subproject: T.Optional[
+         non_msvc_eh_options(eh, args)
+ 
+         debugstl = self.get_compileropt_value('debugstl', env, target, subproject)
+-        assert isinstance(debugstl, str)
++        assert isinstance(debugstl, bool)
+         if debugstl:
+             args.append('-D_GLIBCXX_DEBUG=1')
+         return args
