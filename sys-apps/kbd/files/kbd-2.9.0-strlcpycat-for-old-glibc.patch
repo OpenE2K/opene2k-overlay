@@ -1,0 +1,50 @@
+diff --git a/src/include/kbd/keymap/common.h b/src/include/kbd/keymap/common.h
+index 084c61e..982b74c 100644
+--- a/src/include/kbd/keymap/common.h
++++ b/src/include/kbd/keymap/common.h
+@@ -74,4 +74,45 @@ void *lk_get_log_data(struct lk_ctx *ctx);
+ lk_keywords lk_get_keywords(struct lk_ctx *ctx);
+ int lk_set_keywords(struct lk_ctx *ctx, lk_keywords keywords);
+ 
++#if __GLIBC__ <= 2 && __GLIBC_MINOR__ <= 37
++static inline size_t strlcpy( char *dst, const char *src, size_t size )
++{
++	if( !dst || !src || !size )
++		return 0;
++
++	size_t len = strlen( src );
++
++	if( len >= size ) // check if truncate
++	{
++		memcpy( dst, src, size );
++		dst[size - 1] = 0;
++	}
++	else memcpy( dst, src, len + 1 );
++
++	return len; // count does not include NULL
++}
++
++static inline size_t strlcat( char *dst, const char *src, size_t size )
++{
++	if( !dst || !src || !size )
++		return 0;
++	size_t slen = strlen( src );
++	size_t dlen = strnlen( dst, size );
++
++	if( dlen != size )
++	{
++		size_t copy = size - dlen - 1;
++
++		if( copy > slen )
++			copy = slen;
++
++		memcpy( &dst[dlen], src, copy );
++		dst[dlen + copy] = 0;
++	}
++
++	return dlen + slen;
++}
++
++#endif /* __GLIBC__ <= 2 && __GLIBC_MINOR__ <= 37 */
++
+ #endif /* _KBD_LIBKEYMAP_COMMON_H_ */
