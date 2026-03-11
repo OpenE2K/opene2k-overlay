@@ -6,7 +6,7 @@ To make it work, new profile and keyword are added.
 * Through magic of symlinks, `e2k` profile is based on upstream Gentoo profiles.
 * Keyword `e2k` is only added to the packages that are specifically patched to support Elbrus.
 * As changes of getting this upstreamed are very slim due to proprietary compilers, packages that can be built as-is, are enabled through `amd64` keyword, so we don't have to patch every ebuild from the upstream.
-	* It's temporarily on my machine /etc/portage, but could be added in profile, if profiles support `.accept_keywords`.
+	* ~~It's temporarily on my machine /etc/portage, but could be added in profile, if profiles support `.accept_keywords`.~~ `package.accept_keywords` is landed into profile.
 * The only patch is required for Gentoo portage tree is adding e2k to supported arches in `eclass/toolchain-funcs.eclass`:
 ```diff
 diff --git a/eclass/toolchain-funcs.eclass b/eclass/toolchain-funcs.eclass
@@ -46,8 +46,8 @@ TODO:
 - [ ] Fill out missing parts above. :)
 - [ ] Get rid of hardcoded stuff
 	- [ ] Add copyrights to ebuilds.
-	- [ ] Move `e2k` keyword to `~e2k`, as it's obviously not tested.
-	- [ ] Remove all other keywords, so `e2k` specific packages won't get accidentally pulled on supported by upstream system.
+	- [x] Move `e2k` keyword to `~e2k`, as it's obviously not tested.
+	- [x] Remove all other keywords, so `e2k` specific packages won't get accidentally pulled on supported by upstream system.
 - [ ] Build parts of lcc-libs that have source code published:
 	- [ ] compiler-rt
 	- [ ] libatomic
