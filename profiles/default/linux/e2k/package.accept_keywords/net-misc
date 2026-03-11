@@ -1,0 +1,7 @@
+net-misc/curl amd64
+net-misc/dhcpcd amd64
+net-misc/iputils amd64
+net-misc/netifrc amd64
+net-misc/openssh amd64
+net-misc/rsync amd64
+net-misc/wget amd64

@@ -1,0 +1,10 @@
+dev-build/autoconf amd64
+dev-build/autoconf-wrapper amd64
+dev-build/automake amd64
+dev-build/automake-wrapper amd64
+dev-build/cmake amd64
+dev-build/gtk-doc-am amd64
+dev-build/libtool amd64
+dev-build/make amd64
+dev-build/meson-format-array amd64
+dev-build/ninja amd64

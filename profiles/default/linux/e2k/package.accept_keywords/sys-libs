@@ -1,0 +1,8 @@
+sys-libs/gdbm amd64
+sys-libs/libcap amd64
+sys-libs/libxcrypt amd64
+sys-libs/ncurses amd64
+sys-libs/pam amd64
+sys-libs/readline amd64
+sys-libs/timezone-data amd64
+sys-libs/zlib amd64

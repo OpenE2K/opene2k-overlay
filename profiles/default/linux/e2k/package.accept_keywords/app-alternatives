@@ -1,0 +1,12 @@
+app-alternatives/awk amd64
+app-alternatives/bc amd64
+app-alternatives/bzip2 amd64
+app-alternatives/cpio amd64
+app-alternatives/gpg amd64
+app-alternatives/gzip amd64
+app-alternatives/lex amd64
+app-alternatives/lzip amd64
+app-alternatives/ninja amd64
+app-alternatives/sh amd64
+app-alternatives/tar amd64
+app-alternatives/yacc amd64

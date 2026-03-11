@@ -1,0 +1,6 @@
+app-crypt/gnupg amd64
+app-crypt/gpgme amd64
+app-crypt/libb2 amd64
+app-crypt/libmd amd64
+app-crypt/pinentry amd64
+app-crypt/rhash amd64

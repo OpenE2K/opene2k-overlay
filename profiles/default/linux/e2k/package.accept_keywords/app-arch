@@ -1,0 +1,6 @@
+app-arch/bzip2 amd64
+app-arch/gzip amd64
+app-arch/libarchive amd64
+app-arch/tar amd64
+app-arch/unzip amd64
+app-arch/xz-utils amd64
