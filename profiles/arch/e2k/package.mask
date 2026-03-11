@@ -1,1 +1,2 @@
 llvm-core/llvm
+<sys-devel/gcc-9998
