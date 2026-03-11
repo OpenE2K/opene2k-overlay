@@ -24,7 +24,7 @@ else
 	SRC_URI="https://github.com/seccomp/libseccomp/releases/download/v${PV}/${P}.tar.gz
 		experimental-loong? ( https://github.com/matoro/libseccomp/compare/v${PV}..loongarch-r1.patch
 			-> ${P}-loongarch-r1.patch )"
-	KEYWORDS="-* e2k"
+	KEYWORDS="~e2k"
 fi
 
 LICENSE="LGPL-2.1"

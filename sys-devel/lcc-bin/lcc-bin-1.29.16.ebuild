@@ -11,7 +11,7 @@ SRC_URI="https://setwd.ws/sp/${PV%.*}/${PV}/native/${ABI}/lcc_${PV}-vd9u3_e2k-${
 LICENSE="MCST"
 S="${WORKDIR}"
 SLOT="0"
-KEYWORDS="e2k"
+KEYWORDS="~e2k"
 
 # for now, use prebuilt version of compiler runtime
 RDEPEND="=sys-devel/lcc-libs-bin-${PV}"

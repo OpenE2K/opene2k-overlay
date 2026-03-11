@@ -12,7 +12,7 @@ if [[ ${PV} == 9999 ]] ; then
 else
 	if [[ $(ver_cut 3) -lt 90 ]] ; then
 		SRC_URI="https://www.kernel.org/pub/linux/utils/kbd/${P}.tar.xz"
-		KEYWORDS="e2k"
+		KEYWORDS="~e2k"
 	else
 		inherit autotools
 		SRC_URI="https://github.com/legionus/kbd/archive/v${PV}.tar.gz -> ${P}.tar.gz"

@@ -8,7 +8,7 @@ SRC_URI="https://setwd.ws/sp/${PV%.*}/${PV}/native/${ABI}/lcc-libs_${PV}-vd9u45_
 LICENSE="MCST"
 S="${WORKDIR}"
 SLOT="0"
-KEYWORDS="e2k"
+KEYWORDS="~e2k"
 
 src_unpack() {
 	unpack_deb ${A}
