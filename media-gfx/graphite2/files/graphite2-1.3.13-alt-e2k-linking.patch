@@ -1,0 +1,13 @@
+--- a/src/CMakeLists.txt	2026-03-13 01:08:11.268100425 +0000
++++ b/src/CMakeLists.txt	2026-03-13 01:11:23.482864147 +0000
+@@ -133,6 +133,10 @@
+         endif()
+     endif()
+ 
++    if (${CMAKE_SYSTEM_PROCESSOR} MATCHES "e2k.*")
++        target_link_libraries(graphite2 c gcc_eh supc++ lcc)
++    endif()
++
+     set(CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "")
+     if (0)
+         CREATE_LIBTOOL_FILE(graphite2 "/lib${LIB_SUFFIX}")
