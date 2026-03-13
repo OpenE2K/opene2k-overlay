@@ -1,0 +1,29 @@
+diff --git a/meson.build b/meson.build
+index 95d7e50e4cd..b92b8db7f63 100644
+--- a/meson.build
++++ b/meson.build
+@@ -749,7 +749,7 @@ if get_option('vmware-mks-stats')
+   pre_args += '-DVMX86_STATS=1'
+ endif
+ 
+-_rtti = get_option('cpp_rtti')
++#_rtti = get_option('cpp_rtti')
+ 
+ with_gallium_rusticl = get_option('gallium-rusticl')
+ if with_gallium_rusticl
+diff --git a/src/amd/compiler/aco_util.h b/src/amd/compiler/aco_util.h
+index 9e62bc4733d..00caabfac9e 100644
+--- a/src/amd/compiler/aco_util.h
++++ b/src/amd/compiler/aco_util.h
+@@ -953,7 +953,11 @@ public:
+ 
+    bitfield_array() = default;
+ 
++#ifdef __LCC__
++   bitfield_array(const access_type& value) { *this = value; }
++#else
+    constexpr bitfield_array(const access_type& value) { *this = value; }
++#endif
+ 
+    constexpr bitfield_array& operator=(const access_type& value)
+    {
