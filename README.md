@@ -60,3 +60,32 @@ TODO:
 	- [ ] Add MCST Rust port
 	- [ ] Add rtc (x86 binary translator) package, maybe neatly integrate as multilib, etc...
 - [ ] Cross compiling support
+
+## Example `make.conf`
+
+```bash
+# Set CPU_MODEL to the processor you have.
+# We follow the naming scheme of LCC compiler binary packages as the sole
+# reason for this variable is to know which compiler binary we need to get
+# - e4c for Elbrus-4C
+# - e1c for Elbrus-1C+
+# - e8c for Elbrus-8C
+# - e8c2 for Elbrus-8CB
+# - e2c3 for Elbrus-2C3
+# - e16c for Elbrus-16C
+CPU_MODEL="e4c"
+
+# Be careful with -mtune flag, with it LCC will set "forward incompatible" flag
+# in the ELF header preventing you from running compiled binaries on newer CPUs
+#
+# OpenE2K stage3 is built for Elbrus-4C by default, which you are supposed to
+# recompile for your native ISA.
+COMMON_FLAGS="-O3 -pipe"
+CFLAGS="${COMMON_FLAGS}"
+CXXFLAGS="${COMMON_FLAGS}"
+FCFLAGS="${COMMON_FLAGS}"
+FFLAGS="${COMMON_FLAGS}"
+
+MAKEOPTS="-j17 -l17"
+VIDEO_CARDS="radeonsi amdgpu"
+```
