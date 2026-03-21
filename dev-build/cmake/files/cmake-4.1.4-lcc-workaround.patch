@@ -1,0 +1,15 @@
+diff --git a/Source/cmStandardLevelResolver.cxx b/Source/cmStandardLevelResolver.cxx
+index 1bb865d06e..f563e82775 100644
+--- a/Source/cmStandardLevelResolver.cxx
++++ b/Source/cmStandardLevelResolver.cxx
+@@ -571,7 +571,9 @@ bool cmStandardLevelResolver::AddRequiredTargetFeature(
+     return false;
+   }
+ 
+-  target->AppendProperty("COMPILE_FEATURES", feature,
++  // LCC bug? feature gets reset
++  std::string feature2 = feature;
++  target->AppendProperty("COMPILE_FEATURES", feature2,
+                          this->Makefile->GetBacktrace());
+ 
+   // FIXME: Add a policy to avoid updating the <LANG>_STANDARD target
