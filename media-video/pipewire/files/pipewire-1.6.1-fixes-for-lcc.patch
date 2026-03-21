@@ -1,0 +1,403 @@
+diff --git a/src/modules/module-protocol-pulse/modules/module-alsa-sink.c b/src/modules/module-protocol-pulse/modules/module-alsa-sink.c
+index 49ca940..791619c 100644
+--- a/src/modules/module-protocol-pulse/modules/module-alsa-sink.c
++++ b/src/modules/module-protocol-pulse/modules/module-alsa-sink.c
+@@ -18,7 +18,7 @@
+  * @pulse_module_options@
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"name=<name of the sink, to be prefixed> "
+ 	"sink_name=<name for the sink> "
+ 	"sink_properties=<properties for the sink> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-alsa-source.c b/src/modules/module-protocol-pulse/modules/module-alsa-source.c
+index 1ffce17..5bd078a 100644
+--- a/src/modules/module-protocol-pulse/modules/module-alsa-source.c
++++ b/src/modules/module-protocol-pulse/modules/module-alsa-source.c
+@@ -18,7 +18,7 @@
+  * @pulse_module_options@
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 		"name=<name of the source, to be prefixed> "
+ 		"source_name=<name for the source> "
+ 		"source_properties=<properties for the source> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-always-sink.c b/src/modules/module-protocol-pulse/modules/module-always-sink.c
+index e0ba258..77ab46a 100644
+--- a/src/modules/module-protocol-pulse/modules/module-always-sink.c
++++ b/src/modules/module-protocol-pulse/modules/module-always-sink.c
+@@ -17,7 +17,7 @@
+  * @pulse_module_options@
+  */
+ 
+-static const char *const pulse_module_options = "sink_name=<name of sink>";
++static const char pulse_module_options[] = "sink_name=<name of sink>";
+ 
+ #define NAME "always-sink"
+ 
+diff --git a/src/modules/module-protocol-pulse/modules/module-combine-sink.c b/src/modules/module-protocol-pulse/modules/module-combine-sink.c
+index 962c222..9e83aa7 100644
+--- a/src/modules/module-protocol-pulse/modules/module-combine-sink.c
++++ b/src/modules/module-protocol-pulse/modules/module-combine-sink.c
+@@ -27,7 +27,7 @@
+  * \ref page_module_combine_stream "libpipewire-module-combine-stream"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"sink_name=<name of the sink> "
+ 	"sink_properties=<properties for the sink> "
+ 	"sinks=<sinks to combine> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-device-manager.c b/src/modules/module-protocol-pulse/modules/module-device-manager.c
+index d07fbd2..1a14e06 100644
+--- a/src/modules/module-protocol-pulse/modules/module-device-manager.c
++++ b/src/modules/module-protocol-pulse/modules/module-device-manager.c
+@@ -17,7 +17,7 @@
+  * @pulse_module_options@
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"do_routing=<Automatically route streams based on a priority list (unique per-role)?> "
+ 	"on_hotplug=<When new device becomes available, recheck streams?> "
+ 	"on_rescue=<When device becomes unavailable, recheck streams?>";
+diff --git a/src/modules/module-protocol-pulse/modules/module-device-restore.c b/src/modules/module-protocol-pulse/modules/module-device-restore.c
+index 5a8c8d6..be6579a 100644
+--- a/src/modules/module-protocol-pulse/modules/module-device-restore.c
++++ b/src/modules/module-protocol-pulse/modules/module-device-restore.c
+@@ -57,7 +57,7 @@ enum {
+ #include "../reply.h"
+ #include "../volume.h"
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"restore_port=<Save/restore port?> "
+ 	"restore_volume=<Save/restore volumes?> "
+ 	"restore_muted=<Save/restore muted states?> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-echo-cancel.c b/src/modules/module-protocol-pulse/modules/module-echo-cancel.c
+index b3a11c3..a8ba8af 100644
+--- a/src/modules/module-protocol-pulse/modules/module-echo-cancel.c
++++ b/src/modules/module-protocol-pulse/modules/module-echo-cancel.c
+@@ -26,7 +26,7 @@
+  * \ref page_module_echo_cancel "libpipewire-module-echo-cancel"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"source_name=<name for the source> "
+ 	"source_properties=<properties for the source> "
+ 	"source_master=<name of source to filter> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-jackdbus-detect.c b/src/modules/module-protocol-pulse/modules/module-jackdbus-detect.c
+index c015673..f776d76 100644
+--- a/src/modules/module-protocol-pulse/modules/module-jackdbus-detect.c
++++ b/src/modules/module-protocol-pulse/modules/module-jackdbus-detect.c
+@@ -23,7 +23,7 @@
+  * \ref page_module_jackdbus_detect "libpipewire-module-jackdbus-detect"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"channels=<number of channels> "
+ 	"sink_name=<name for the sink> "
+ 	"sink_properties=<properties for the sink> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-ladspa-sink.c b/src/modules/module-protocol-pulse/modules/module-ladspa-sink.c
+index 50c3683..04c57ef 100644
+--- a/src/modules/module-protocol-pulse/modules/module-ladspa-sink.c
++++ b/src/modules/module-protocol-pulse/modules/module-ladspa-sink.c
+@@ -26,7 +26,7 @@
+  * \ref page_module_filter_chain "libpipewire-module-filter-chain"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"sink_name=<name for the sink> "
+ 	"sink_properties=<properties for the sink> "
+ 	"sink_input_properties=<properties for the sink input> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-ladspa-source.c b/src/modules/module-protocol-pulse/modules/module-ladspa-source.c
+index 09eb11c..fda0cec 100644
+--- a/src/modules/module-protocol-pulse/modules/module-ladspa-source.c
++++ b/src/modules/module-protocol-pulse/modules/module-ladspa-source.c
+@@ -26,7 +26,7 @@
+  * \ref page_module_filter_chain "libpipewire-module-filter-chain"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"source_name=<name for the source> "
+ 	"source_properties=<properties for the source> "
+ 	"source_output_properties=<properties for the source output> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-loopback.c b/src/modules/module-protocol-pulse/modules/module-loopback.c
+index 2ef85fa..d4ca385 100644
+--- a/src/modules/module-protocol-pulse/modules/module-loopback.c
++++ b/src/modules/module-protocol-pulse/modules/module-loopback.c
+@@ -26,7 +26,7 @@
+  * \ref page_module_loopback "libpipewire-module-loopback"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"source=<source to connect to> "
+ 	"sink=<sink to connect to> "
+ 	"latency_msec=<latency in ms> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-native-protocol-tcp.c b/src/modules/module-protocol-pulse/modules/module-native-protocol-tcp.c
+index 6700ad4..bd601dd 100644
+--- a/src/modules/module-protocol-pulse/modules/module-native-protocol-tcp.c
++++ b/src/modules/module-protocol-pulse/modules/module-native-protocol-tcp.c
+@@ -19,7 +19,7 @@
+  * @pulse_module_options@
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"port=<TCP port number> "
+ 	"listen=<address to listen on> "
+ 	"auth-anonymous=<don't check for cookies?>";
+diff --git a/src/modules/module-protocol-pulse/modules/module-null-sink.c b/src/modules/module-protocol-pulse/modules/module-null-sink.c
+index e7a9ae6..01eef63 100644
+--- a/src/modules/module-protocol-pulse/modules/module-null-sink.c
++++ b/src/modules/module-protocol-pulse/modules/module-null-sink.c
+@@ -18,7 +18,7 @@
+  * @pulse_module_options@
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"sink_name=<name of sink> "
+ 	"sink_properties=<properties for the sink> "
+ 	"format=<sample format> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-pipe-sink.c b/src/modules/module-protocol-pulse/modules/module-pipe-sink.c
+index 0f910ac..40a9647 100644
+--- a/src/modules/module-protocol-pulse/modules/module-pipe-sink.c
++++ b/src/modules/module-protocol-pulse/modules/module-pipe-sink.c
+@@ -29,7 +29,7 @@
+  * \ref page_module_pipe_tunnel "libpipewire-module-pipe-tunnel"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"file=<name of the FIFO special file to use> "
+ 	"sink_name=<name for the sink> "
+ 	"sink_properties=<sink properties> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-pipe-source.c b/src/modules/module-protocol-pulse/modules/module-pipe-source.c
+index ff44f3c..d89c39a 100644
+--- a/src/modules/module-protocol-pulse/modules/module-pipe-source.c
++++ b/src/modules/module-protocol-pulse/modules/module-pipe-source.c
+@@ -29,7 +29,7 @@
+  * \ref page_module_pipe_tunnel "libpipewire-module-pipe-tunnel"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"file=<name of the FIFO special file to use> "
+ 	"source_name=<name for the source> "
+ 	"source_properties=<source properties> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-remap-sink.c b/src/modules/module-protocol-pulse/modules/module-remap-sink.c
+index 103579f..1e14045 100644
+--- a/src/modules/module-protocol-pulse/modules/module-remap-sink.c
++++ b/src/modules/module-protocol-pulse/modules/module-remap-sink.c
+@@ -25,7 +25,7 @@
+  * \ref page_module_loopback "libpipewire-module-loopback"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"sink_name=<name for the sink> "
+ 	"sink_properties=<properties for the sink> "
+ 	"master=<name of sink to remap> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-remap-source.c b/src/modules/module-protocol-pulse/modules/module-remap-source.c
+index eaff91b..b29b5ff 100644
+--- a/src/modules/module-protocol-pulse/modules/module-remap-source.c
++++ b/src/modules/module-protocol-pulse/modules/module-remap-source.c
+@@ -25,7 +25,7 @@
+  * \ref page_module_loopback "libpipewire-module-loopback"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"source_name=<name for the source> "
+ 	"source_properties=<properties for the source> "
+ 	"master=<name of source to filter> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-roc-sink-input.c b/src/modules/module-protocol-pulse/modules/module-roc-sink-input.c
+index 2200a7b..1987d4e 100644
+--- a/src/modules/module-protocol-pulse/modules/module-roc-sink-input.c
++++ b/src/modules/module-protocol-pulse/modules/module-roc-sink-input.c
+@@ -24,7 +24,7 @@
+  * \ref page_module_roc_source "libpipewire-module-roc-source"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"sink=<name for the sink> "
+ 	"sink_input_properties=<properties for the sink_input> "
+ 	"resampler_profile=<empty>|high|medium|low "
+diff --git a/src/modules/module-protocol-pulse/modules/module-roc-sink.c b/src/modules/module-protocol-pulse/modules/module-roc-sink.c
+index 6b03006..2f6540d 100644
+--- a/src/modules/module-protocol-pulse/modules/module-roc-sink.c
++++ b/src/modules/module-protocol-pulse/modules/module-roc-sink.c
+@@ -24,7 +24,7 @@
+  * \ref page_module_roc_sink "libpipewire-module-roc-sink"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"sink_name=<name for the sink> "
+ 	"sink_properties=<properties for the sink> "
+ 	"fec_code=<empty>|disable|rs8m|ldpc "
+diff --git a/src/modules/module-protocol-pulse/modules/module-roc-source.c b/src/modules/module-protocol-pulse/modules/module-roc-source.c
+index 661153d..90ddff4 100644
+--- a/src/modules/module-protocol-pulse/modules/module-roc-source.c
++++ b/src/modules/module-protocol-pulse/modules/module-roc-source.c
+@@ -24,7 +24,7 @@
+  * \ref page_module_roc_source "libpipewire-module-roc-source"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"source_name=<name for the source> "
+ 	"source_properties=<properties for the source> "
+ 	"resampler_profile=<empty>|high|medium|low "
+diff --git a/src/modules/module-protocol-pulse/modules/module-rtp-recv.c b/src/modules/module-protocol-pulse/modules/module-rtp-recv.c
+index f81e190..beaf346 100644
+--- a/src/modules/module-protocol-pulse/modules/module-rtp-recv.c
++++ b/src/modules/module-protocol-pulse/modules/module-rtp-recv.c
+@@ -23,7 +23,7 @@
+  * \ref page_module_rtp_sap "libpipewire-module-rtp-sap"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"sink=<name of the sink> "
+ 	"sap_address=<multicast address to listen on> "
+ 	"latency_msec=<latency in ms> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-rtp-send.c b/src/modules/module-protocol-pulse/modules/module-rtp-send.c
+index aa4015d..21dd571 100644
+--- a/src/modules/module-protocol-pulse/modules/module-rtp-send.c
++++ b/src/modules/module-protocol-pulse/modules/module-rtp-send.c
+@@ -23,7 +23,7 @@
+  * \ref page_module_rtp_sink "libpipewire-module-rtp-sink"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"source=<name of the source> "
+ 	"format=<sample format> "
+ 	"channels=<number of channels> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-simple-protocol-tcp.c b/src/modules/module-protocol-pulse/modules/module-simple-protocol-tcp.c
+index 4ca4156..8d67b76 100644
+--- a/src/modules/module-protocol-pulse/modules/module-simple-protocol-tcp.c
++++ b/src/modules/module-protocol-pulse/modules/module-simple-protocol-tcp.c
+@@ -23,7 +23,7 @@
+  * \ref page_module_protocol_simple "libpipewire-module-protocol-simple"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"rate=<sample rate> "
+ 	"format=<sample format> "
+ 	"channels=<number of channels> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-stream-restore.c b/src/modules/module-protocol-pulse/modules/module-stream-restore.c
+index a33ab6f..7ec8b7f 100644
+--- a/src/modules/module-protocol-pulse/modules/module-stream-restore.c
++++ b/src/modules/module-protocol-pulse/modules/module-stream-restore.c
+@@ -18,7 +18,7 @@
+  * @pulse_module_options@
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"restore_device=<Save/restore sinks/sources?> "
+ 	"restore_volume=<Save/restore volumes?> "
+ 	"restore_muted=<Save/restore muted states?> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-switch-on-connect.c b/src/modules/module-protocol-pulse/modules/module-switch-on-connect.c
+index e4dc2de..10909bb 100644
+--- a/src/modules/module-protocol-pulse/modules/module-switch-on-connect.c
++++ b/src/modules/module-protocol-pulse/modules/module-switch-on-connect.c
+@@ -26,7 +26,7 @@
+  * @pulse_module_options@
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"only_from_unavailable=<boolean, only switch from unavailable ports (not implemented yet)> "
+ 	"ignore_virtual=<boolean, ignore new virtual sinks and sources, defaults to true> "
+ 	"blocklist=<regex, ignore matching devices, default=hdmi> ";
+diff --git a/src/modules/module-protocol-pulse/modules/module-tunnel-sink.c b/src/modules/module-protocol-pulse/modules/module-tunnel-sink.c
+index 59de3c6..af6cbc9 100644
+--- a/src/modules/module-protocol-pulse/modules/module-tunnel-sink.c
++++ b/src/modules/module-protocol-pulse/modules/module-tunnel-sink.c
+@@ -27,7 +27,7 @@
+  * \ref page_module_pulse_tunnel "libpipewire-module-pulse-tunnel"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"server=<address> "
+ 	"sink=<name of the remote sink> "
+ 	"sink_name=<name for the local sink> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-tunnel-source.c b/src/modules/module-protocol-pulse/modules/module-tunnel-source.c
+index 415f2dd..aa24bd4 100644
+--- a/src/modules/module-protocol-pulse/modules/module-tunnel-source.c
++++ b/src/modules/module-protocol-pulse/modules/module-tunnel-source.c
+@@ -27,7 +27,7 @@
+  * \ref page_module_pulse_tunnel "libpipewire-module-pulse-tunnel"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"server=<address> "
+ 	"source=<name of the remote source> "
+ 	"source_name=<name for the local source> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-virtual-sink.c b/src/modules/module-protocol-pulse/modules/module-virtual-sink.c
+index e3193f2..2d110e3 100644
+--- a/src/modules/module-protocol-pulse/modules/module-virtual-sink.c
++++ b/src/modules/module-protocol-pulse/modules/module-virtual-sink.c
+@@ -25,7 +25,7 @@
+  * \ref page_module_loopback "libpipewire-module-loopback"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"sink_name=<name for the sink> "
+ 	"sink_properties=<properties for the sink> "
+ 	"master=<name of sink to filter> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-virtual-source.c b/src/modules/module-protocol-pulse/modules/module-virtual-source.c
+index fe3f106..1a5126e 100644
+--- a/src/modules/module-protocol-pulse/modules/module-virtual-source.c
++++ b/src/modules/module-protocol-pulse/modules/module-virtual-source.c
+@@ -26,7 +26,7 @@
+  * \ref page_module_loopback "libpipewire-module-loopback"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"source_name=<name for the source> "
+ 	"source_properties=<properties for the source> "
+ 	"master=<name of source to filter> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-x11-bell.c b/src/modules/module-protocol-pulse/modules/module-x11-bell.c
+index a29e2e8..ebc553c 100644
+--- a/src/modules/module-protocol-pulse/modules/module-x11-bell.c
++++ b/src/modules/module-protocol-pulse/modules/module-x11-bell.c
+@@ -21,7 +21,7 @@
+  * \ref page_module_x11_bell "libpipewire-module-x11-bell"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"sink=<sink to connect to> "
+ 	"sample=<the sample to play> "
+ 	"display=<X11 display> "
+diff --git a/src/modules/module-protocol-pulse/modules/module-zeroconf-discover.c b/src/modules/module-protocol-pulse/modules/module-zeroconf-discover.c
+index 5b1763e..5e804d6 100644
+--- a/src/modules/module-protocol-pulse/modules/module-zeroconf-discover.c
++++ b/src/modules/module-protocol-pulse/modules/module-zeroconf-discover.c
+@@ -23,7 +23,7 @@
+  * \ref page_module_zeroconf_discover "libpipewire-module-zeroconf-discover"
+  */
+ 
+-static const char *const pulse_module_options =
++static const char pulse_module_options[] =
+ 	"latency_msec=<fixed latency in ms> ";
+ 
+ #define NAME "zeroconf-discover"
