@@ -1,3 +1,7 @@
+# Copyright 1999-2026 Gentoo Authors
+# Copyright 2026 OpenE2K
+# Distributed under the terms of the GNU General Public License v2
+
 ARCH="e2k"
 ACCEPT_KEYWORDS="e2k ~e2k"
 
@@ -8,6 +12,9 @@ FFLAGS="${CFLAGS}"
 FCFLAGS="${CFLAGS}"
 
 # This is the CHOST that's accepted by binutils port
+# Also this is the CHOST upstreamed by MCST to gnuconfig
+# Sometimes they rename it e2k64-mcst-linux-gnu but we would
+# follow upstream gnuconfig
 CHOST="e2k-mcst-linux-gnu"
 
 DEFAULT_ABI="ptr64"
