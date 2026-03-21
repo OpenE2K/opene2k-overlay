@@ -1,21 +1,26 @@
-From d435758194d1327c0a7f0a077cea45e2b266d47d Mon Sep 17 00:00:00 2001
-From: Ilya Kurdyukov <59548320+ilyakurdyukov@users.noreply.github.com>
-Date: Thu, 5 Feb 2026 19:19:46 +0700
-Subject: [PATCH] fix Elbrus support
-
-Fix commit d37d649b08b832d52fa684bc0506829fb40d5261, which broke Elbrus support:
-
-   File "/usr/lib/python3/site-packages/mesonbuild/compilers/cpp.py", line 641, in get_option_compile_args
-     assert isinstance(debugstl, str)
----
- mesonbuild/compilers/cpp.py | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/mesonbuild/compilers/cpp.py b/mesonbuild/compilers/cpp.py
-index e563365cc49e..acc2a3da289f 100644
---- a/mesonbuild/compilers/cpp.py
-+++ b/mesonbuild/compilers/cpp.py
-@@ -655,7 +655,7 @@ def get_option_compile_args(self, target: 'BuildTarget', subproject: T.Optional[
+diff -Naur meson-1.9.1-orig/mesonbuild/compilers/cpp.py meson-1.9.1/mesonbuild/compilers/cpp.py
+--- meson-1.9.1-orig/mesonbuild/compilers/cpp.py	2025-09-22 18:55:51.000000000 +0300
++++ meson-1.9.1/mesonbuild/compilers/cpp.py	2026-02-05 11:18:25.498161087 +0300
+@@ -45,7 +45,8 @@
+ else:
+     CompilerMixinBase = object
+ 
+-ALL_STDS = ['c++98', 'c++0x', 'c++03', 'c++1y', 'c++1z', 'c++11', 'c++14', 'c++17', 'c++2a', 'c++20', 'c++23', 'c++26']
++ALL_STDS = ['c++98', 'c++0x', 'c++03', 'c++1y', 'c++1z', 'c++11', 'c++14', 'c++17']
++ALL_STDS += ['c++2a', 'c++2b', 'c++2c', 'c++20', 'c++23', 'c++26']
+ ALL_STDS += [f'gnu{std[1:]}' for std in ALL_STDS]
+ ALL_STDS += ['vc++11', 'vc++14', 'vc++17', 'vc++20', 'vc++latest', 'c++latest']
+ 
+@@ -628,6 +629,8 @@
+             cpp_stds += ['c++2a']
+         if version_compare(self.version, '>=1.26.00'):
+             cpp_stds += ['c++20']
++        if version_compare(self.version, '>=1.28.00'):
++            cpp_stds += ['c++2b', 'c++23']
+ 
+         key = self.form_compileropt_key('std')
+         std_opt = opts[key]
+@@ -656,7 +659,7 @@
          non_msvc_eh_options(eh, args)
  
          debugstl = self.get_compileropt_value('debugstl', env, target, subproject)
@@ -24,3 +29,24 @@ index e563365cc49e..acc2a3da289f 100644
          if debugstl:
              args.append('-D_GLIBCXX_DEBUG=1')
          return args
+diff -Naur meson-1.9.1-orig/mesonbuild/compilers/c.py meson-1.9.1/mesonbuild/compilers/c.py
+--- meson-1.9.1-orig/mesonbuild/compilers/c.py	2025-09-22 18:55:51.000000000 +0300
++++ meson-1.9.1/mesonbuild/compilers/c.py	2026-02-05 12:22:53.042712353 +0300
+@@ -52,7 +52,7 @@
+ 
+ ALL_STDS = ['c89', 'c9x', 'c90', 'c99', 'c1x', 'c11', 'c17', 'c18', 'c2x', 'c23', 'c2y']
+ ALL_STDS += [f'gnu{std[1:]}' for std in ALL_STDS]
+-ALL_STDS += ['iso9899:1990', 'iso9899:199409', 'iso9899:1999', 'iso9899:2011', 'iso9899:2017', 'iso9899:2018']
++ALL_STDS += ['iso9899:1990', 'iso9899:199409', 'iso9899:1999', 'iso9899:2011', 'iso9899:2017', 'iso9899:2018', 'iso9899:2024']
+ 
+ 
+ class CCompiler(CLikeCompiler, Compiler):
+@@ -342,6 +342,8 @@
+             stds += ['c90', 'c1x', 'gnu90', 'gnu1x', 'iso9899:2011']
+         if version_compare(self.version, '>=1.26.00'):
+             stds += ['c17', 'c18', 'iso9899:2017', 'iso9899:2018', 'gnu17', 'gnu18']
++        if version_compare(self.version, '>=1.28.00'):
++            stds += ['c2x', 'gnu2x', 'c23', 'iso9899:2024', 'gnu23']
+         key = self.form_compileropt_key('std')
+         std_opt = opts[key]
+         assert isinstance(std_opt, options.UserStdOption), 'for mypy'
