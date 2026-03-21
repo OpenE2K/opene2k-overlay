@@ -1,8 +1,16 @@
 net-libs/gnutls amd64
+net-libs/libasyncns amd64
 net-libs/libmicrohttpd amd64
 net-libs/libmnl amd64
 net-libs/libnsl amd64
 net-libs/libpsl amd64
+net-libs/libssh amd64
+net-libs/libssh2 amd64
 net-libs/libtirpc amd64
+net-libs/llhttp amd64
 net-libs/nghttp2 amd64
 net-libs/nghttp3 amd64
+net-libs/rabbitmq-c amd64
+net-libs/srt amd64
+net-libs/zeromq amd64
+

@@ -1,4 +1,5 @@
 dev-build/autoconf amd64
+dev-build/autoconf-archive amd64
 dev-build/autoconf-wrapper amd64
 dev-build/automake amd64
 dev-build/automake-wrapper amd64

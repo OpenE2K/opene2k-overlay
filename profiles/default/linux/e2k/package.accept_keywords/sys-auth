@@ -1,2 +1,4 @@
 sys-auth/pambase amd64
 sys-auth/passwdqc amd64
+sys-auth/realtime-base amd64
+sys-auth/seatd amd64

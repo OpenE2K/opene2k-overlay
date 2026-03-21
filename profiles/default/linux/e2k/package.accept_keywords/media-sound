@@ -1,0 +1,9 @@
+media-sound/gsm amd64
+media-sound/jack2 amd64
+media-sound/jack-example-tools amd64
+media-sound/liblc3 amd64
+media-sound/mpg123-base amd64
+media-sound/opus-tools amd64
+media-sound/pulseaudio-daemon amd64
+media-sound/sndio amd64
+media-sound/twolame amd64

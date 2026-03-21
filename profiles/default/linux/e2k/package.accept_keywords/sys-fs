@@ -1,2 +1,4 @@
+sys-fs/btrfs-progs amd64
+sys-fs/compsize amd64
 sys-fs/e2fsprogs amd64
 sys-fs/udev-init-scripts amd64
