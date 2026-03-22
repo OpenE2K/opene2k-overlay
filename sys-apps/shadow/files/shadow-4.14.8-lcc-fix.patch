@@ -1,11 +1,11 @@
---- a/lib/defines.h	2024-06-21 09:00:20.000000000 +0000
-+++ b/lib/defines.h	2026-03-09 08:59:58.419330730 +0000
-@@ -229,7 +229,7 @@
- /* Maximum length of passwd entry */
- #define PASSWD_ENTRY_MAX_LENGTH 32768
+--- a/lib/attr.h	2025-12-15 11:15:32.207414897 +0000
++++ b/lib/attr.h	2026-03-22 10:53:13.856503035 +0000
+@@ -40,7 +40,7 @@
+ # define ATTR_ALLOC_SIZE(...)
+ #endif
  
 -#if (__GNUC__ >= 11) && !defined(__clang__)
 +#if (__GNUC__ >= 11) && !defined(__clang__) && !defined(__MCST__)
- # define ATTR_MALLOC(deallocator)  [[gnu::malloc(deallocator)]]
+ # define ATTR_MALLOC(deallocator)    [[gnu::malloc(deallocator)]]
  #else
  # define ATTR_MALLOC(deallocator)
