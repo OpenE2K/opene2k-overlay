@@ -5,7 +5,9 @@ dev-python/charset-normalizer amd64
 dev-python/cython amd64
 dev-python/docutils amd64
 dev-python/editables amd64
+dev-python/ensurepip-pip amd64
 dev-python/flit-core amd64
+dev-python/gentoo-common amd64
 dev-python/gpep517 amd64
 dev-python/hatchling amd64
 dev-python/hatch-vcs amd64

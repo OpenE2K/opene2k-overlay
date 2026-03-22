@@ -1,10 +1,12 @@
 dev-util/ccache amd64
 dev-util/cmocka amd64
+dev-util/debugedit amd64
 dev-util/desktop-file-utils amd64
 dev-util/gdbus-codegen amd64
 dev-util/glib-utils amd64
 dev-util/glslang amd64
 dev-util/gperf amd64
+dev-util/patchelf amd64
 dev-util/pkgconf amd64
 dev-util/opencl-headers amd64
 dev-util/re2c amd64
