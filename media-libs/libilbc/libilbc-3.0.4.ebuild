@@ -10,7 +10,7 @@ if [[ ${PV} == *9999* ]]; then
 	EGIT_REPO_URI="https://github.com/TimothyGu/${PN}"
 else
 	SRC_URI="https://github.com/TimothyGu/${PN}/releases/download/v${PV}/${P}.tar.gz"
-	KEYWORDS="amd64 arm arm64 ~mips ppc ppc64 ~riscv ~sparc x86"
+	KEYWORDS="~e2k"
 fi
 
 DESCRIPTION="Packaged version of iLBC codec from the WebRTC project"
