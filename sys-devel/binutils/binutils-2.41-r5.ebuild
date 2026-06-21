@@ -43,6 +43,7 @@ export CTARGET=${CTARGET:-${CHOST}}
 if [[ ${CTARGET} == ${CHOST} ]] ; then
 	if [[ ${CATEGORY} == cross-* ]] ; then
 		export CTARGET=${CATEGORY#cross-}
+		[[ -n ${KEYWORDS} ]] && KEYWORDS+=" ~amd64"
 	fi
 fi
 is_cross() { [[ ${CHOST} != ${CTARGET} ]] ; }

@@ -35,6 +35,7 @@ RDEPEND="
 	dev-libs/xxhash
 	dev-scheme/guile:3.0
 	sys-libs/ncurses:0/6
+	cross-e2k-mcst-linux-gnu/binutils
 "
 
 src_install() {
@@ -52,10 +53,23 @@ src_install() {
 			e2kv4) isa=v4 ;;
 			e2kv5) isa=v5 ;;
 			e2kv6) isa=v6 ;;
+			*) continue ;;
 		esac
 
 		dodir /opt/mcst
 		# preserve modes/symlinks but not the tarball's foreign uid/gid
 		cp -a --no-preserve=ownership "${S}/opt/mcst/lcc-${PV}.e2k-${isa}.linux-6.1" "${ED}"/opt/mcst/ || die
+
+		# Replace the bundled binutils with symlinks to our own cross binutils
+		local btdir="${ED}/opt/mcst/lcc-${PV}.e2k-${isa}.linux-6.1/binutils"
+		local f tool
+		for f in "${btdir}"/bin/e2k-linux-*; do
+			tool=${f##*/e2k-linux-}
+			ln -sf "${EPREFIX}/usr/bin/e2k-mcst-linux-gnu-${tool}" "${f}" || die
+		done
+		for f in "${btdir}"/e2k-linux/bin/*; do
+			tool=${f##*/}
+			ln -sf "${EPREFIX}/usr/bin/e2k-mcst-linux-gnu-${tool}" "${f}" || die
+		done
 	done
 }
