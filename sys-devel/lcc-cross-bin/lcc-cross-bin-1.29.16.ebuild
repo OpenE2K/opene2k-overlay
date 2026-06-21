@@ -26,16 +26,19 @@ SRC_URI="
 
 # require at least one target use flag
 REQUIRED_USE="|| ( ${IUSE} )"
+IUSE+=" bundled-gdb"
 
-# most of deps are for binutils and gdb builds, in the future we could build them ourselves
 RDEPEND="
-	app-arch/xz-utils
-	app-arch/zstd
-	dev-libs/boehm-gc
-	dev-libs/xxhash
-	dev-scheme/guile:3.0
-	sys-libs/ncurses:0/6
 	cross-e2k-mcst-linux-gnu/binutils
+	!bundled-gdb? ( cross-e2k-mcst-linux-gnu/gdb )
+	bundled-gdb? (
+		app-arch/xz-utils
+		app-arch/zstd
+		dev-libs/boehm-gc
+		dev-libs/xxhash
+		dev-scheme/guile:3.0
+		sys-libs/ncurses:0/6
+	)
 "
 
 src_install() {
@@ -71,5 +74,12 @@ src_install() {
 			tool=${f##*/}
 			ln -sf "${EPREFIX}/usr/bin/e2k-mcst-linux-gnu-${tool}" "${f}" || die
 		done
+
+		if ! use bundled-gdb; then
+			for f in "${ED}/opt/mcst/lcc-${PV}.e2k-${isa}.linux-6.1/gdb/bin"/e2k-linux-*; do
+				tool=${f##*/e2k-linux-}
+				ln -sf "${EPREFIX}/usr/bin/e2k-mcst-linux-gnu-${tool}" "${f}" || die
+			done
+		fi
 	done
 }
