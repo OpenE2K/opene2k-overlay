@@ -1,0 +1,51 @@
+#!/sbin/openrc-run
+# Copyright 1999-2018 Gentoo Authors
+# Distributed under the terms of the GNU General Public License v2
+
+# Enable automatic non-native program execution by the kernel.
+
+# Defaulting to OC should be safe because it comes down to:
+#  - do we trust the interp itself to not be malicious?  yes; we built it.
+#  - do we trust the programs we're running?  ish; same permission as native
+#    binaries apply.  so if user can do bad stuff natively, cross isn't worse.
+: ${QEMU_BINFMT_FLAGS:=OC}
+
+depend() {
+	after procfs
+}
+
+start() {
+	ebegin "Registering qemu-user binaries (flags: ${QEMU_BINFMT_FLAGS})"
+
+	if [ ! -d /proc/sys/fs/binfmt_misc ] ; then
+		modprobe -q binfmt_misc
+	fi
+
+	if [ ! -d /proc/sys/fs/binfmt_misc ] ; then
+		eend 1 "You need support for 'misc binaries' in your kernel!"
+		return
+	fi
+
+	if [ ! -f /proc/sys/fs/binfmt_misc/register ] ; then
+		mount -t binfmt_misc -o nodev,noexec,nosuid \
+			binfmt_misc /proc/sys/fs/binfmt_misc >/dev/null 2>&1
+		eend $? || return
+	fi
+
+	if [ -x "/usr/bin/qemu-e2k" ] ; then
+		printf '%s\n' ':qemu-e2k:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xaf\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/usr/bin/qemu-e2k:'"${QEMU_BINFMT_FLAGS}" >/proc/sys/fs/binfmt_misc/register
+	fi
+	eend 0
+}
+
+stop() {
+	# We unregister everything in the "qemu-xxx" namespace.
+	ebegin "Unregistering qemu-user binaries"
+	local f
+	for f in /proc/sys/fs/binfmt_misc/qemu-* ; do
+		if [ -f "${f}" ] ; then
+			echo '-1' > "${f}"
+		fi
+	done
+	eend 0
+}
