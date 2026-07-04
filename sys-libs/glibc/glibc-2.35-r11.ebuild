@@ -74,6 +74,7 @@ export CTARGET=${CTARGET:-${CHOST}}
 if [[ ${CTARGET} == ${CHOST} ]] ; then
 	if [[ ${CATEGORY} == cross-* ]] ; then
 		export CTARGET=${CATEGORY#cross-}
+		[[ -n ${KEYWORDS} ]] && KEYWORDS+=" ~amd64"
 	fi
 fi
 
@@ -151,14 +152,17 @@ RESTRICT="!test? ( test )"
 if [[ ${CATEGORY} == cross-* ]] ; then
 	BDEPEND+=" !headers-only? (
 		>=${CATEGORY}/binutils-2.27
-		>=${CATEGORY}/lcc-bin-1.29
+		>=sys-devel/lcc-cross-bin-1.29
 	)"
 	[[ ${CATEGORY} == *-linux* ]] && DEPEND+=" ${CATEGORY}/linux-headers"
 else
-	BDEPEND+="
-		>=sys-devel/binutils-2.27
-		>=sys-devel/lcc-bin-1.29
-	"
+	BDEPEND+=" >=sys-devel/binutils-2.27 "
+	if [[ ${CBUILD:-${CHOST}} != ${CHOST} ]] ; then
+		# cross build (e.g. cross-emerge @system): use the cross compiler
+		BDEPEND+=" >=sys-devel/lcc-cross-bin-1.29 "
+	else
+		BDEPEND+=" >=sys-devel/lcc-bin-1.29 "
+	fi
 	DEPEND+=" virtual/os-headers "
 	RDEPEND+="
 		>=net-dns/libidn2-2.3.0
@@ -533,7 +537,8 @@ setup_env() {
 	# glibc does not work with non-bfd (for various reasons):
 	# * gold (bug #269274)
 	# * mold (bug #860900)
-	tc-ld-force-bfd
+	# a1ba: lcc freaks out at -fuse-ld=bfd, need to disable it
+	# tc-ld-force-bfd
 
 	if use doc ; then
 		export MAKEINFO=makeinfo
