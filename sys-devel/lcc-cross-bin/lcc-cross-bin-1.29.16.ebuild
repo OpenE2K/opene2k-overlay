@@ -19,7 +19,6 @@ REQUIRED_USE="|| ( ${LCC_TARGET_IUSE} )"
 
 RDEPEND="
 	cross-e2k-mcst-linux-gnu/binutils
-	!bundled-gdb? ( cross-e2k-mcst-linux-gnu/gdb )
 	bundled-gdb? (
 		app-arch/xz-utils
 		app-arch/zstd

@@ -5,6 +5,6 @@
 		<email>a1ba.omarov@gmail.com</email>
 	</maintainer>
 	<use>
-		<flag name="bundled-gdb">Keep MCST's bundled gdb instead of cross-e2k-mcst-linux-gnu/gdb</flag>
+		<flag name="bundled-gdb">Keep MCST's bundled gdb. When not set, gdb is not pulled through dependencies.</flag>
 	</use>
 </pkgmetadata>
