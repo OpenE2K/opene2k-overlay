@@ -3,7 +3,6 @@ sys-apps/attr amd64
 sys-apps/baselayout amd64
 sys-apps/coreutils amd64
 sys-apps/dbus amd64
-sys-apps/diffutils amd64
 sys-apps/ethtool amd64
 sys-apps/file amd64
 sys-apps/findutils amd64

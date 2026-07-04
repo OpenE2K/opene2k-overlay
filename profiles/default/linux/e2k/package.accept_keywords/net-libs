@@ -10,6 +10,7 @@ net-libs/libtirpc amd64
 net-libs/llhttp amd64
 net-libs/nghttp2 amd64
 net-libs/nghttp3 amd64
+net-libs/ngtcp2 amd64
 net-libs/rabbitmq-c amd64
 net-libs/srt amd64
 net-libs/zeromq amd64

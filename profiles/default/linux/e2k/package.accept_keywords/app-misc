@@ -1,6 +1,7 @@
 app-misc/ca-certificates amd64
 app-misc/colordiff amd64
 app-misc/editor-wrapper amd64
+app-misc/hello amd64
 app-misc/mime-types amd64
 app-misc/pax-utils amd64
 app-misc/screen amd64

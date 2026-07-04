@@ -8,6 +8,7 @@ dev-libs/gobject-introspection amd64
 dev-libs/gobject-introspection-common amd64
 dev-libs/json-c amd64
 dev-libs/jsoncpp amd64
+dev-libs/leancrypto amd64
 dev-libs/libassuan amd64
 dev-libs/libatomic_ops amd64
 dev-libs/libbsd amd64

@@ -1,6 +1,5 @@
 sys-libs/gdbm amd64
 sys-libs/libavc1394 amd64
-sys-libs/libcap amd64
 sys-libs/libraw1394 amd64
 sys-libs/libxcrypt amd64
 sys-libs/mtdev amd64
