@@ -1,20 +1,17 @@
 EAPI=8
 
-inherit unpacker
+inherit lcc-target unpacker
 
 DESCRIPTION="MCST lcc compiler runtime binary"
 HOMEPAGE="https://dev.mcst.ru"
-SRC_URI="https://setwd.ws/sp/${PV%.*}/${PV}/native/${CPU_MODEL}/lcc-libs_${PV}-vd9u45_e2k-${CPU_MODEL:1}.deb"
-LICENSE="MCST"
+
+lcc-target_native_src_uri lcc-libs vd9u45
+
 S="${WORKDIR}"
+LICENSE="MCST"
 SLOT="0"
 KEYWORDS="~e2k"
-
-src_prepare() {
-	[ -z "${CPU_MODEL}" ] && "set CPU_MODEL variable in make.conf!"
-
-	default
-}
+REQUIRED_USE="^^ ( ${LCC_TARGET_IUSE} )"
 
 src_unpack() {
 	unpack_deb ${A}

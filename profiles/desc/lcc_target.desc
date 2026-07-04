@@ -1,0 +1,18 @@
+# Copyright 2026 OpenE2K
+# Distributed under the terms of the GNU General Public License v2
+
+# LCC_TARGET selects which MCST native lcc build sys-devel/lcc-bin and
+# lcc-libs-bin install. ISA baselines (e2k_v*) are forward compatible - their
+# code runs on that ISA and every newer Elbrus CPU. Model names are tuned for a
+# single CPU and forward incompatible. Exactly one must be set.
+
+e2k_v3 - Forward-compatible Elbrus v3 baseline (runs on Elbrus-4C and newer)
+e2k_v4 - Forward-compatible Elbrus v4 baseline (runs on Elbrus-8C/1C+ and newer)
+e2k_v5 - Forward-compatible Elbrus v5 baseline (runs on Elbrus-8CB and newer)
+e2k_v6 - Forward-compatible Elbrus v6 baseline (runs on Elbrus-16C/2C3 and newer)
+e4c - Elbrus-4C tuned (forward incompatible)
+e1c - Elbrus-1C+ tuned (forward incompatible)
+e8c - Elbrus-8C tuned (forward incompatible)
+e8c2 - Elbrus-8CB tuned (forward incompatible)
+e16c - Elbrus-16C tuned (forward incompatible)
+e2c3 - Elbrus-2C3 tuned (forward incompatible)

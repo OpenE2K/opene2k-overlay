@@ -1,0 +1,29 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Pass Portage's cross SYSROOT to lcc and redirect bare host library paths into
+# it, so ld cannot resolve incompatible host libraries. With no SYSROOT the SDK
+# behaves as its standalone self. @LCC@ is filled in at install time.
+sysroot="${ESYSROOT:-$SYSROOT}"
+
+if [ -z "$sysroot" ] || [ "$sysroot" = / ]; then
+	exec "@LCC@" "$@"
+fi
+
+sysroot=${sysroot%/}
+remaining=$#
+
+while [ "$remaining" -gt 0 ]; do
+	arg=$1
+	shift
+	remaining=$((remaining - 1))
+
+	case $arg in
+		-L/usr/lib64 | -L/usr/lib | -L/lib64 | -L/lib | -L/usr/local/lib64 | -L/usr/local/lib)
+			arg="-L${sysroot}${arg#-L}"
+			;;
+	esac
+
+	set -- "$@" "$arg"
+done
+
+exec "@LCC@" --sysroot="$sysroot" "$@"

@@ -33,3 +33,6 @@ LIBDIR_ptr32="lib"
 CFLAGS_ptr128="-mptr128"
 LDFLAGS_ptr128="-m elf64_e2k_pm"
 LIBDIR_ptr128="lib128"
+
+# which MCST native lcc build to fetch (sys-devel/lcc-bin, lcc-libs-bin)
+USE_EXPAND="${USE_EXPAND} LCC_TARGET"

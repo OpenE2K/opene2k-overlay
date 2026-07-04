@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="person">
+		<email>a1ba.omarov@gmail.com</email>
+	</maintainer>
+	<use>
+		<flag name="bundled-gdb">Keep MCST's bundled gdb instead of cross-e2k-mcst-linux-gnu/gdb</flag>
+	</use>
+</pkgmetadata>
