@@ -20,7 +20,7 @@ SRC_URI="${KERNEL_URI}
 	${PATCH_VER:+https://dev.gentoo.org/~${PATCH_DEV}/distfiles/sys-kernel/linux-headers/gentoo-headers-${PATCH_PV}-${PATCH_VER}.tar.xz}"
 S="${WORKDIR}/linux-${PV}"
 
-KEYWORDS="~e2k"
+KEYWORDS="~e2k ~amd64"
 
 BDEPEND="app-arch/xz-utils
 	dev-lang/perl
