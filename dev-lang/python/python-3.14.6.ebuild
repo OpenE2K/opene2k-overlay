@@ -24,7 +24,7 @@ HOMEPAGE="
 "
 SRC_URI="
 	https://www.python.org/ftp/python/${PV%%_*}/${MY_P}.tar.xz
-	https://dev.gentoo.org/~mgorny/dist/python/${PATCHSET}.tar.xz
+	https://distfiles.gentoo.org/pub/proj/python/patchsets/${PYVER%t}/${PATCHSET}.tar.xz
 	verify-sig? (
 		https://www.python.org/ftp/python/${PV%%_*}/${MY_P}.tar.xz.sigstore
 	)
@@ -35,7 +35,7 @@ LICENSE="PSF-2"
 SLOT="${PYVER}"
 KEYWORDS="~e2k"
 IUSE="
-	bluetooth debug +ensurepip examples gdbm jit libedit +ncurses pgo
+	bluetooth build debug +ensurepip examples gdbm jit libedit +ncurses pgo
 	+readline +sqlite +ssl tail-call-interp test tk valgrind
 "
 REQUIRED_USE="jit? ( ${LLVM_REQUIRED_USE} )"
@@ -49,16 +49,16 @@ RESTRICT="!test? ( test )"
 RDEPEND="
 	app-arch/bzip2:=
 	app-arch/xz-utils:=
-	app-arch/zstd:=
 	app-misc/mime-types
 	>=dev-libs/expat-2.1:=
 	dev-libs/libffi:=
 	dev-libs/mpdecimal:=
 	dev-python/gentoo-common
+	sys-apps/util-linux
 	>=virtual/zlib-1.1.3:=
 	virtual/libintl
+	!build? ( app-arch/zstd:= )
 	gdbm? ( sys-libs/gdbm:=[berkdb] )
-	kernel_linux? ( sys-apps/util-linux:= )
 	ncurses? ( >=sys-libs/ncurses-5.2:= )
 	readline? (
 		!libedit? ( >=sys-libs/readline-4.1:= )
@@ -173,7 +173,7 @@ src_prepare() {
 
 	local PATCHES=(
 		"${WORKDIR}/${PATCHSET}"
-		"${FILESDIR}"/${PN}-3.14.3-fix-hacl-e2k.patch
+		"${FILESDIR}"/${P}-fix-hacl-e2k.patch
 	)
 
 	default
@@ -467,6 +467,7 @@ src_configure() {
 	cat > Modules/Setup.local <<-EOF || die
 		*disabled*
 		nis
+		$(usev build '_zstd')
 		$(usev !gdbm '_gdbm _dbm')
 		$(usev !sqlite '_sqlite3')
 		$(usev !ssl '_hashlib _ssl')
