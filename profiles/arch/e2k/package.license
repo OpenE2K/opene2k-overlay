@@ -1,0 +1,4 @@
+# lcc is MCST's proprietary compiler and is unavoidable on e2k, so accept its license arch-wide
+sys-devel/lcc-bin MCST
+sys-devel/lcc-libs-bin MCST
+sys-devel/lcc-cross-bin MCST
