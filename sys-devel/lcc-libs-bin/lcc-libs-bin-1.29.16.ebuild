@@ -21,7 +21,11 @@ src_install() {
 	# if only there was a simpler way to do this
 	# LOL
 
-	insinto /usr
 	insopts -m755
-	doins -r usr/lib{32,64,128}
+
+	insinto /usr
+	doins -r usr/lib64 usr/lib128
+
+	insinto /usr/lib
+	doins -r usr/lib32/*
 }
