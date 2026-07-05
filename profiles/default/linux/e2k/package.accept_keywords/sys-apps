@@ -9,7 +9,6 @@ sys-apps/findutils amd64
 sys-apps/gawk amd64
 sys-apps/gentoo-functions amd64
 sys-apps/gptfdisk amd64
-sys-apps/grep amd64
 sys-apps/groff amd64
 sys-apps/help2man amd64
 sys-apps/hdparm amd64

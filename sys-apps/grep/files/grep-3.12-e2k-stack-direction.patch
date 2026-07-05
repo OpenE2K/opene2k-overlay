@@ -1,0 +1,24 @@
+diff --git a/configure b/configure
+index 8f2f59d..804a3b5 100755
+--- a/configure
++++ b/configure
+@@ -45140,6 +45140,7 @@ else case e in #(
+       arm* | strongarm* | xscale* | \
+       avr | avr32 | \
+       bfin | \
++      e2k | \
+       c1 | c2 | c32 | c34 | c38 | \
+       clipper | \
+       cr16 | \
+diff --git a/m4/stack-direction.m4 b/m4/stack-direction.m4
+index c82304f..d5aa88d 100644
+--- a/m4/stack-direction.m4
++++ b/m4/stack-direction.m4
+@@ -25,6 +25,7 @@ AC_DEFUN([SV_STACK_DIRECTION],
+       arm* | strongarm* | xscale* | \
+       avr | avr32 | \
+       bfin | \
++      e2k | \
+       c1 | c2 | c32 | c34 | c38 | \
+       clipper | \
+       cr16 | \
