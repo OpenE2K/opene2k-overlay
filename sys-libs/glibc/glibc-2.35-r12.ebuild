@@ -20,7 +20,7 @@ SLOT="2.2"
 
 EMULTILIB_PKG="true"
 
-MCST_PV="29.016"
+MCST_PV="29.023"
 
 # Gentoo patchset (ignored for live ebuilds)
 PATCH_VER=12

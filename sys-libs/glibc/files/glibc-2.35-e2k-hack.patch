@@ -1,16 +1,24 @@
 diff --git a/sysdeps/e2k/preconfigure b/sysdeps/e2k/preconfigure
-index 81150712ee..4c71732cce 100644
+index 4c71732..3a80c49 100644
 --- a/sysdeps/e2k/preconfigure
 +++ b/sysdeps/e2k/preconfigure
-@@ -1,9 +1,9 @@
+@@ -1,10 +1,13 @@
  # preconfigure fragment for e2k.
  
  case "$machine" in
--e2k | e2k32)
-+e2k32)
- 		base_machine=e2k machine=e2k/e2k32 ;;
--e2k64)
-+e2k | e2k64)
- 		base_machine=e2k machine=e2k/e2k64 ;;
- e2k128)
- 		base_machine=e2k machine=e2k/e2k128 ;;
+-e2k32)
+-		base_machine=e2k machine=e2k/e2k32 ;;
+-e2k | e2k64)
+-		base_machine=e2k machine=e2k/e2k64 ;;
+-e2k128)
+-		base_machine=e2k machine=e2k/e2k128 ;;
++e2k | e2k32 | e2k64 | e2k128)
++		base_machine=e2k
++		e2k_ptr=$($CC $CFLAGS -E -dM - </dev/null 2>/dev/null \
++			| sed -n 's/^#define __SIZEOF_POINTER__ //p')
++		case "$e2k_ptr" in
++		4)	machine=e2k/e2k32 ;;
++		16)	machine=e2k/e2k128 ;;
++		*)	machine=e2k/e2k64 ;;
++		esac ;;
+ esac
