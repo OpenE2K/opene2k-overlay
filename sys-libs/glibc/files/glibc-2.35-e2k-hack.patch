@@ -1,24 +1,30 @@
-diff --git a/sysdeps/e2k/preconfigure b/sysdeps/e2k/preconfigure
-index 4c71732..3a80c49 100644
---- a/sysdeps/e2k/preconfigure
-+++ b/sysdeps/e2k/preconfigure
-@@ -1,10 +1,13 @@
- # preconfigure fragment for e2k.
+diff --git a/sysdeps/e2k/e2k128/Makefile b/sysdeps/e2k/e2k128/Makefile
+index a0009fb..172fdae 100644
+--- a/sysdeps/e2k/e2k128/Makefile
++++ b/sysdeps/e2k/e2k128/Makefile
+@@ -1,4 +1,4 @@
+-e2k128-cflags =
++e2k128-cflags = -mptr128
  
- case "$machine" in
--e2k32)
--		base_machine=e2k machine=e2k/e2k32 ;;
--e2k | e2k64)
--		base_machine=e2k machine=e2k/e2k64 ;;
--e2k128)
--		base_machine=e2k machine=e2k/e2k128 ;;
-+e2k | e2k32 | e2k64 | e2k128)
-+		base_machine=e2k
-+		e2k_ptr=$($CC $CFLAGS -E -dM - </dev/null 2>/dev/null \
-+			| sed -n 's/^#define __SIZEOF_POINTER__ //p')
-+		case "$e2k_ptr" in
-+		4)	machine=e2k/e2k32 ;;
-+		16)	machine=e2k/e2k128 ;;
-+		*)	machine=e2k/e2k64 ;;
-+		esac ;;
- esac
+ ifeq (yes,$(compile-with-lcc))
+ e2k128-cflags += -Wno-void-pointer-to-function-pointer-cast
+diff --git a/sysdeps/e2k/e2k32/Makefile b/sysdeps/e2k/e2k32/Makefile
+index d303a12..1c070b5 100644
+--- a/sysdeps/e2k/e2k32/Makefile
++++ b/sysdeps/e2k/e2k32/Makefile
+@@ -1,4 +1,4 @@
+-e2k32-cflags =
++e2k32-cflags = -mptr32
+ 
+ CC += $(e2k32-cflags)
+ CXX += $(e2k32-cflags)
+diff --git a/sysdeps/e2k/e2k64/Makefile b/sysdeps/e2k/e2k64/Makefile
+index 35593f9..5cdcb82 100644
+--- a/sysdeps/e2k/e2k64/Makefile
++++ b/sysdeps/e2k/e2k64/Makefile
+@@ -1,4 +1,4 @@
+-e2k64-cflags =
++e2k64-cflags = -mptr64
+ 
+ CC += $(e2k64-cflags)
+ CXX += $(e2k64-cflags)

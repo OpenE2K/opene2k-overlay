@@ -30,7 +30,6 @@ index 15c44e0..defdfdb 100644
  			: "${DEFAULT_ABI=sparc64}"
  		;;
 +		e2k*)
-+			# e2k differs by pointer size, not CHOST, so the ABI CFLAGS carry it
 +			export CFLAGS_ptr64="-mptr64"
 +			export LDFLAGS_ptr64="-m elf64_e2k"
 +			export LIBDIR_ptr64="lib64"
@@ -43,14 +42,14 @@ index 15c44e0..defdfdb 100644
 +			export LDFLAGS_ptr128="-m elf64_e2k_pm"
 +			export LIBDIR_ptr128="lib128"
 +
-+			export CHOST_ptr64=${CTARGET}
-+			export CTARGET_ptr64=${CTARGET}
++			export CHOST_ptr64=e2k-${CTARGET#*-}
++			export CTARGET_ptr64=${CHOST_ptr64}
 +
-+			export CHOST_ptr32=${CTARGET}
-+			export CTARGET_ptr32=${CTARGET}
++			export CHOST_ptr32=e2k32-${CTARGET#*-}
++			export CTARGET_ptr32=${CHOST_ptr32}
 +
-+			export CHOST_ptr128=${CTARGET}
-+			export CTARGET_ptr128=${CTARGET}
++			export CHOST_ptr128=e2k128-${CTARGET#*-}
++			export CTARGET_ptr128=${CHOST_ptr128}
 +			: "${MULTILIB_ABIS=ptr64 ptr32 ptr128}"
 +			: "${DEFAULT_ABI=ptr64}"
 +		;;
@@ -63,30 +62,40 @@ index 15c44e0..defdfdb 100644
 
 It might be useful to keep /usr/e2k-mcst-linux-gnu, for distcc or building stage from scratch. For that:
 
+0. First, `emerge` this overlay's `sys-devel/gnuconfig` so `config.sub` recognises the `e2k32`/`e2k128` ABI triplets that glibc's per-ABI `--host` relies on.
+
 1. Build the cross root, crossdev at stage0 will build cross binutils:
 
    ```sh
    crossdev --stage0 -A "ptr64 ptr32 ptr128" --target e2k-mcst-linux-gnu
    ```
 
-2. Emerge `sys-devel/lcc-cross-wrappers` with single `LCC_TARGET`, it will pull `sys-devel/lcc-cross-bin` with the matching flag.
+2. Crossdev makes a lot of assumptions, so we need to edit `/usr/e2k-mcst-linux-gnu/etc/portage/` before building the sysroot:
 
-3. Build the toolchain sysroot:
+   - install `scripts/cross-repos.conf` as `repos.conf`, so portage sees the `opene2k` repo and, with it, the `e2k` arch (otherwise `ACCEPT_KEYWORDS="e2k ~e2k"` is rejected as INVALID)
+   - point `make.profile` at `/var/db/repos/opene2k/profiles/default/linux/e2k/23.0`
+   - `make.conf`: change default `-O2` to `-O3` in `CFLAGS`/`CXXFLAGS`, set `LCC_TARGET`.
+
+3. Emerge `sys-devel/lcc-cross-wrappers` with single `LCC_TARGET`, it will pull `sys-devel/lcc-cross-bin` with the matching flag.
+
+4. Build the toolchain sysroot. crossdev masks `multilib` for the cross glibc, so out of the box it builds ptr64 only. To get all three ABIs, drop the `multilib` line from `/etc/portage/profile/package.use.mask/cross-e2k-mcst-linux-gnu` and add `cross-e2k-mcst-linux-gnu/glibc multilib` to `/etc/portage/package.use/cross-e2k-mcst-linux-gnu` first:
 
    ```sh
    emerge cross-e2k-mcst-linux-gnu/linux-headers cross-e2k-mcst-linux-gnu/glibc
    ```
 
-4. Crossdev makes a lot of assumptions, so we need to edit `/usr/e2k-mcst-linux-gnu/etc/portage/`:
+   in case it complains about merged-usr, use the `sys-apps/merge-usr` tool, it's a known crossdev quirk.
 
-   - add `opene2k` (priority 100) to `repos.conf`
-   - point `make.profile` at `/var/db/repos/opene2k/profiles/default/linux/e2k/23.0`
-   - `make.conf`: change default `-O2` to `-O3` in `CFLAGS`/`CXXFLAGS`, set `LCC_TARGET`.
-   - `package.license`: `lcc` is, unfortunately, a proprietary compiler, so allow `MCST` license.
-   - crossdev makes split-usr for some reason, so turn it into merged-usr.
+5. `net-libs/libmicrohttpd`'s configure runs an eventfd test, and doesn't execute it in cross build, so force the result in the cross root's `/etc/portage`: put `mhd_cv_eventfd_usable=yes` in an `env/libmicrohttpd` file and map it in `package.env`:
 
-5. Build the userland:
+   ```sh
+   mkdir -p /usr/e2k-mcst-linux-gnu/etc/portage/env
+   echo 'mhd_cv_eventfd_usable=yes' > /usr/e2k-mcst-linux-gnu/etc/portage/env/libmicrohttpd
+   echo 'net-libs/libmicrohttpd libmicrohttpd' >> /usr/e2k-mcst-linux-gnu/etc/portage/package.env
+   ```
 
+6. Build the userland:
+D
    ```sh
    e2k-mcst-linux-gnu-emerge @system
    ```
@@ -106,9 +115,9 @@ Supported CPUs (defined as ABI in the profile):
 - [ ] Elbrus 8CB
 
 Supported ABIs:
-- [ ] ptr32
+- [x] ptr32
 - [x] ptr64
-- [ ] ptr128
+- [x] ptr128
 
 TODO:
 - [ ] Fill out missing parts above. :)
