@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+
+# Copyright (c) 2023 MCST
+# Copyright 2026 OpenE2K
+# This script is installed by sys-kernel/installkernel, it is executed by the
+# traditional installkernel, NOT by systemd's kernel-install. I.e. this plugin
+# is run when the systemd USE flag is disabled or SYSTEMD_KERNEL_INSTALL=0 is
+# set in the environment.
+#
+# It maintains the Elbrus boot loader configuration /boot/boot.conf, adding a
+# label for the freshly installed kernel and making it the default. The
+# generator logic is derived from installkernel in Linux kernel source code.
+
+: "${BOOTCONF:=/boot/boot.conf}"
+: "${FSTAB:=/etc/fstab}"
+
+die() {
+	echo -e " ${NOCOLOR-\e[1;31m*\e[0m }${*}" >&2
+	exit 1
+}
+
+einfo() {
+	[[ ${INSTALLKERNEL_VERBOSE} == 1 ]] || return 0
+	echo -e " ${NOCOLOR-\e[1;32m*\e[0m }${*}"
+}
+
+ewarn() {
+	echo -e " ${NOCOLOR-\e[1;33m*\e[0m }${*}"
+}
+
+eerror() {
+	echo -e " ${NOCOLOR-\e[1;31m*\e[0m }${*}" >&2
+}
+
+ver=
+image=
+initrd=
+label=
+
+backup_bootconf() {
+	local d
+	d=$(date +%g%m%d%H%M)
+	cp "${BOOTCONF}" "${BOOTCONF}.${d}" || die "Failed to back up ${BOOTCONF}"
+}
+
+label_exists() {
+	sed -e 's/[\t ]*//g' -e 's/#.*//g' "${BOOTCONF}" |
+		grep -q "^label=${label}$"
+}
+
+delete_label() {
+	local n1 n2
+	n1=$(sed -e 's/[\t ]*//g' -e 's/#.*//g' "${BOOTCONF}" |
+		grep -n "label=${label}$" | sed 's/:.*//g')
+	[[ -z ${n1} ]] && return 0
+	n2=$(sed -e 's/[\t ]*//g' -e 's/#.*//g' "${BOOTCONF}" |
+		grep -n "label=" | sed -n "/label=${label}$/{n;p;}" | sed 's/:.*//g')
+	if [[ -z ${n2} ]]; then
+		n2=$(wc -l < "${BOOTCONF}")
+	else
+		(( n2-- ))
+	fi
+	sed -i "${n1},${n2}d" "${BOOTCONF}"
+}
+
+add_label() {
+	local rootdev bootdev bootuuid partnum bootpart cur_cmdline cmdline
+	local image_path initrd_path
+
+	rootdev=$(grep -E '[[:space:]]/[[:space:]]' "${FSTAB}" |
+		grep -v '^[[:space:]]*#' | awk '{print $1}')
+	bootdev=$(grep -E '[[:space:]]/boot[[:space:]]' "${FSTAB}" |
+		grep -v '^[[:space:]]*#' | awk '{print $1}')
+
+	if [[ -z ${bootdev} ]]; then
+		# /boot lives on the root filesystem, so the loader reads the root
+		# partition and paths are relative to it. Expose boot.conf at the
+		# partition root where the firmware looks for it.
+		bootdev=${rootdev}
+		image_path=${image}
+		[[ -f ${initrd} ]] && initrd_path=${initrd}
+		[[ -e /boot.conf ]] || ln -s -r "${BOOTCONF}" / || die "Failed to link ${BOOTCONF}"
+	else
+		image_path=/${image##*/}
+		[[ -f ${initrd} ]] && initrd_path=/${initrd##*/}
+	fi
+
+	if [[ ${bootdev} == UUID=* ]]; then
+		bootuuid=${bootdev#UUID=}
+		bootdev=$(blkid -U "${bootuuid}") || die "Failed to resolve UUID=${bootuuid}"
+	fi
+
+	partnum=${bootdev##*[a-zA-Z]}
+	bootpart=$(( partnum - 1 ))
+
+	cur_cmdline=$(sed -e 's/root=[^[:space:]]*//g' /proc/cmdline)
+	cmdline="${cur_cmdline} root=${rootdev}"
+
+	{
+		echo "label=${label}"
+		echo "	partition=${bootpart}"
+		echo "	image=${image_path}"
+		[[ -n ${initrd_path} ]] && echo "	initrd=${initrd_path}"
+		echo "	cmdline=${cmdline}"
+	} >> "${BOOTCONF}" || die "Failed to write ${BOOTCONF}"
+}
+
+default_label() {
+	local n
+	n=$(grep -n '^default=' "${BOOTCONF}" | tail -n 1 | cut -d: -f1)
+	if [[ -z ${n} ]]; then
+		sed -i "1 i default=${label}" "${BOOTCONF}"
+	else
+		(( n++ ))
+		sed -i "${n} i default=${label}" "${BOOTCONF}"
+	fi
+}
+
+main() {
+	# re-define for subst to work
+	[[ -n ${NOCOLOR+yes} ]] && NOCOLOR=
+
+	ver=${1}
+	image=${2}
+	[[ -n ${ver} ]] || die "kernel version not passed as first argument"
+	[[ -n ${image} ]] || die "kernel image path not passed as second argument"
+	label="linux-${ver}"
+	initrd="${image%/*}/initramfs-${ver}.img"
+
+	[[ -e ${BOOTCONF} ]] || : > "${BOOTCONF}"
+
+	einfo "Updating ${BOOTCONF} for ${label}..."
+	backup_bootconf
+	label_exists && delete_label
+	add_label
+	default_label
+}
+
+main "${@}"

@@ -1,0 +1,2 @@
+# mask systemd because it obviously doens't support boot.conf
+sys-kernel/installkernel systemd

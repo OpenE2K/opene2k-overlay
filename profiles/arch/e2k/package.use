@@ -1,3 +1,6 @@
 # PCRE has no JIT for E2K
 dev-libs/libpcre  -jit
 dev-libs/libpcre2 -jit
+
+# Generate the Elbrus boot loader config (/boot/boot.conf) on kernel installs
+sys-kernel/installkernel bootconf
