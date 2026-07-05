@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<maintainer type="person">
+		<email>a1ba.omarov@gmail.com</email>
+	</maintainer>
+	<longdescription>Installs the Elbrus 2000 (e2k) architecture definition into Catalyst's arch/ directory so e2k stages can be built.</longdescription>
+	<use>
+		<flag name="qemu">Pull in a static <pkg>app-emulation/qemu-e2k</pkg> for building e2k stages on a non-e2k host (chroot interpreter). Doesn't work.</flag>
+	</use>
+	<upstream>
+		<remote-id type="github">OpenE2K/opene2k-overlay</remote-id>
+	</upstream>
+</pkgmetadata>

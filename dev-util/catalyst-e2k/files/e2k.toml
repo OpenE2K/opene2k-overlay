@@ -1,0 +1,7 @@
+[e2k.e2k]
+COMMON_FLAGS = "-O3 -pipe"
+CHOST = "e2k-mcst-linux-gnu"
+
+[e2k.e2kv3]
+COMMON_FLAGS = "-O3 -pipe"
+CHOST = "e2k-mcst-linux-gnu"
