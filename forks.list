@@ -1,7 +1,6 @@
 app-arch/zstd
 app-portage/eix
 dev-build/cmake
-dev-build/meson
 dev-debug/gdb
 dev-lang/python
 dev-libs/libffi
