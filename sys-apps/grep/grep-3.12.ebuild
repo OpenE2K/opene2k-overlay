@@ -4,7 +4,7 @@
 EAPI=8
 
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/grep.asc
-inherit branding flag-o-matic verify-sig
+inherit branding flag-o-matic toolchain-funcs verify-sig
 
 DESCRIPTION="GNU regular expression matcher"
 HOMEPAGE="https://www.gnu.org/software/grep/"
@@ -60,7 +60,6 @@ QA_CONFIG_IMPL_DECL_SKIP=(
 
 PATCHES=(
 	"${FILESDIR}"/${P}-write-error-test.patch
-	"${FILESDIR}"/${P}-e2k-stack-direction.patch
 )
 
 src_prepare() {
@@ -72,8 +71,10 @@ src_prepare() {
 		-e "s:@grep@:${EPREFIX}/bin/grep:" \
 		src/egrep.sh || die
 
-	# Drop when grep-3.11-100k-files-dir.patch is gone
-	#touch aclocal.m4 config.hin configure {,doc/,gnulib-tests/,lib/,src/,tests/}Makefile.in || die
+	# stack-direction.m4 self-detects natively; only cross needs the e2k patch.
+	if tc-is-cross-compiler; then
+		eapply "${FILESDIR}"/${P}-e2k-stack-direction.patch
+	fi
 }
 
 src_configure() {

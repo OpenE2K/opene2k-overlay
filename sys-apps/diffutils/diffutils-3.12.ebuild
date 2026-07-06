@@ -4,7 +4,7 @@
 EAPI=8
 
 VERIFY_SIG_OPENPGP_KEY_PATH=/usr/share/openpgp-keys/diffutils.asc
-inherit branding verify-sig
+inherit branding toolchain-funcs verify-sig
 
 DESCRIPTION="Tools to make diffs and compare files"
 HOMEPAGE="https://www.gnu.org/software/diffutils/"
@@ -35,15 +35,13 @@ RDEPEND="
 	nls? ( app-i18n/gnulib-l10n )
 "
 
-PATCHES=(
-	"${FILESDIR}"/${P}-e2k-stack-direction.patch
-)
-
 src_prepare() {
 	default
 
-	# Needed because of patches to avoid perl BDEPEND (affects Prefix too)
-	#touch man/diff.1 || die
+	# stack-direction.m4 self-detects natively; only cross needs the e2k patch.
+	if tc-is-cross-compiler; then
+		eapply "${FILESDIR}"/${P}-e2k-stack-direction.patch
+	fi
 }
 
 src_configure() {
