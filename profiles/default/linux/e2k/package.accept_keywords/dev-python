@@ -1,4 +1,5 @@
 dev-python/alabaster amd64
+dev-python/ast-serialize amd64
 dev-python/babel amd64
 dev-python/certifi amd64
 dev-python/charset-normalizer amd64
@@ -19,9 +20,12 @@ dev-python/jaraco-context amd64
 dev-python/jaraco-functools amd64
 dev-python/jaraco-text amd64
 dev-python/jinja2 amd64
+dev-python/librt amd64
 dev-python/mako amd64
 dev-python/markupsafe amd64
 dev-python/more-itertools amd64
+dev-python/mypy amd64
+dev-python/mypy-extensions amd64
 dev-python/olefile amd64
 dev-python/packaging amd64
 dev-python/pathspec amd64
@@ -49,5 +53,7 @@ dev-python/sphinxcontrib-qthelp amd64
 dev-python/sphinxcontrib-serializinghtml amd64
 dev-python/sphinx-rtd-theme amd64
 dev-python/trove-classifiers amd64
+dev-python/typing-extensions amd64
 dev-python/urllib3 amd64
+dev-python/vcs-versioning amd64
 dev-python/wheel amd64
