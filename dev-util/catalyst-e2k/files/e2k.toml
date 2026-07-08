@@ -1,7 +1,15 @@
+# -march is omitted intentionally,
+# LCC_TARGET=e2k_v3 compiler will produce v3+ output implicitly
 [e2k.e2k]
 COMMON_FLAGS = "-O3 -pipe"
 CHOST = "e2k-mcst-linux-gnu"
 
-[e2k.e2kv3]
-COMMON_FLAGS = "-O3 -pipe"
+# Elbrus-4C (v3)
+[e2k.e2k_e4c]
+COMMON_FLAGS = "-O3 -pipe -march=elbrus-v3 -mtune=elbrus-4c"
+CHOST = "e2k-mcst-linux-gnu"
+
+# Elbrus-8C2 (v5)
+[e2k.e2k_e8c2]
+COMMON_FLAGS = "-O3 -pipe -march=elbrus-v5 -mtune=elbrus-8c2"
 CHOST = "e2k-mcst-linux-gnu"

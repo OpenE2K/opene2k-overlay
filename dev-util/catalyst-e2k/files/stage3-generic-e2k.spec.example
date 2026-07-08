@@ -1,0 +1,12 @@
+# rebuild the generic (forward-compatible) stage3 from a generic stage3 seed.
+subarch: e2k
+target: stage3
+rel_type: 23.0-e2k
+profile: opene2k:default/linux/e2k/23.0
+version_stamp: 23.0-@TIMESTAMP@
+snapshot_treeish: @TREEISH@
+# previous generic stage3 (same subarch)
+source_subpath: 23.0-e2k/stage3-e2k-23.0-@SEED_TIMESTAMP@
+repos: /var/db/repos/opene2k
+portage_confdir: /usr/share/catalyst/confdir/e2k-generic
+portage_prefix: opene2k

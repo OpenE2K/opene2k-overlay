@@ -24,4 +24,11 @@ src_install() {
 	insinto /usr/share/catalyst/spec/e2k
 	doins "${FILESDIR}"/stage1-e2k.spec.example
 	doins "${FILESDIR}"/stage3-e2k.spec.example
+	doins "${FILESDIR}"/stage3-generic-e2k.spec.example
+	doins "${FILESDIR}"/stage3-e8c2-e2k.spec.example
+
+	insinto /usr/share/catalyst/confdir
+	doins -r "${FILESDIR}"/confdir/e2k-generic
+	doins -r "${FILESDIR}"/confdir/e2k-e4c
+	doins -r "${FILESDIR}"/confdir/e2k-e8c2
 }

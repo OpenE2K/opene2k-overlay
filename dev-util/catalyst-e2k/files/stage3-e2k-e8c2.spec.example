@@ -1,12 +1,10 @@
-# generic stage3 seeded from stage1
-subarch: e2k
+subarch: e2k_e8c2
 target: stage3
 rel_type: 23.0-e2k
 profile: opene2k:default/linux/e2k/23.0
 version_stamp: 23.0-@TIMESTAMP@
 snapshot_treeish: @TREEISH@
-source_subpath: 23.0-e2k/stage1-e2k-@TIMESTAMP@
-#interpreter: /usr/bin/qemu-e2k
+source_subpath: 23.0-e2k/stage3-e2k-23.0-@SEED_TIMESTAMP@
 repos: /var/db/repos/opene2k
-portage_confdir: /etc/catalyst/confdir/e2k
+portage_confdir: /usr/share/catalyst/confdir/e2k-e8c2
 portage_prefix: opene2k
