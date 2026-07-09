@@ -1,4 +1,6 @@
-subarch: e2k_e8c2
+# this stage3 is rebuilt from bootstrapped or previously built stage3
+# targets e8c2 only
+subarch: e8c2
 target: stage3
 rel_type: 23.0-e2k
 profile: opene2k:default/linux/e2k/23.0

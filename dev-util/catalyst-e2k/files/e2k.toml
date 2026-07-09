@@ -1,15 +1,14 @@
-# -march is omitted intentionally,
-# LCC_TARGET=e2k_v3 compiler will produce v3+ output implicitly
+# generic build, runs on everything from v3 and forward
+# (not strictly guaranteed as far as I understand, but at least works on real e4c and e8c2)
+# using generic build we also create e4c and e8c2 images
 [e2k.e2k]
-COMMON_FLAGS = "-O3 -pipe"
+COMMON_FLAGS = "-O3 -pipe -march=elbrus-v3"
 CHOST = "e2k-mcst-linux-gnu"
 
-# Elbrus-4C (v3)
-[e2k.e2k_e4c]
+[e2k.e4c]
 COMMON_FLAGS = "-O3 -pipe -march=elbrus-v3 -mtune=elbrus-4c"
 CHOST = "e2k-mcst-linux-gnu"
 
-# Elbrus-8C2 (v5)
-[e2k.e2k_e8c2]
+[e2k.e8c2]
 COMMON_FLAGS = "-O3 -pipe -march=elbrus-v5 -mtune=elbrus-8c2"
 CHOST = "e2k-mcst-linux-gnu"

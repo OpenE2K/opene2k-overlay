@@ -1,4 +1,4 @@
-# generic stage3 seeded from stage1
+# this stage3 is seeded from stage1, only used for bootstrapping purposes
 subarch: e2k
 target: stage3
 rel_type: 23.0-e2k
@@ -6,7 +6,6 @@ profile: opene2k:default/linux/e2k/23.0
 version_stamp: 23.0-@TIMESTAMP@
 snapshot_treeish: @TREEISH@
 source_subpath: 23.0-e2k/stage1-e2k-@TIMESTAMP@
-#interpreter: /usr/bin/qemu-e2k
 repos: /var/db/repos/opene2k
 portage_confdir: /etc/catalyst/confdir/e2k
 portage_prefix: opene2k
