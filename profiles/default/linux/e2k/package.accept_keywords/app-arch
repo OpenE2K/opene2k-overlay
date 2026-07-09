@@ -1,3 +1,4 @@
+app-arch/cpio amd64
 app-arch/brotli amd64
 app-arch/bzip2 amd64
 app-arch/gzip amd64
