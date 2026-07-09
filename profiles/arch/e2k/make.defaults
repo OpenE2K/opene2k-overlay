@@ -4,8 +4,9 @@
 
 ARCH="e2k"
 ACCEPT_KEYWORDS="e2k ~e2k"
+ACCEPT_LICENSE="${ACCEPT_LICENSE} MCST"
 
-# set -O3 by default as it's recommended by e2k devs
+# set -O3 by default, lcc's -O3 is equivalent to gcc's -O2 for some stupid reason
 CFLAGS="-O3 -pipe"
 CXXFLAGS="${CFLAGS}"
 FFLAGS="${CFLAGS}"
@@ -13,8 +14,8 @@ FCFLAGS="${CFLAGS}"
 
 # This is the CHOST that's accepted by binutils port
 # Also this is the CHOST upstreamed by MCST to gnuconfig
-# Sometimes they rename it e2k64-mcst-linux-gnu but we would
-# follow upstream gnuconfig
+# but you might notice we fork and patch gnuconfig. Why?
+# because it's used in glibc to support multilib
 CHOST="e2k-mcst-linux-gnu"
 
 DEFAULT_ABI="ptr64"
@@ -36,3 +37,9 @@ LIBDIR_ptr128="lib128"
 
 # which MCST native lcc build to fetch (sys-devel/lcc-bin, lcc-libs-bin)
 USE_EXPAND="${USE_EXPAND} LCC_TARGET"
+
+# we don't support sandbox on e2k yet
+FEATURES="-sandbox -usersandbox"
+
+# this is ugly...
+BOOTSTRAP_USE="${BOOTSTRAP_USE} gawk bison flex gnu reference bash lcc_target_e2k_v3"
