@@ -1,0 +1,6 @@
+# I think I'm not supposed to put cache into repo?
+metadata/md5-cache
+
+# Hide python scripts cache
+__pycache__
+*.pyc
