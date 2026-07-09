@@ -37,6 +37,7 @@ LIBDIR_ptr128="lib128"
 
 # which MCST native lcc build to fetch (sys-devel/lcc-bin, lcc-libs-bin)
 USE_EXPAND="${USE_EXPAND} LCC_TARGET"
+USE_EXPAND_VALUES_ARCH="${USE_EXPAND_VALUES_ARCH} e2k "
 
 # we don't support sandbox on e2k yet
 FEATURES="-sandbox -usersandbox"
