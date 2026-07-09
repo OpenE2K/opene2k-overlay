@@ -6,7 +6,7 @@ virtual/commonlisp amd64
 virtual/cron amd64
 virtual/daemontools amd64
 virtual/dev-manager amd64
-virtual/dist-kernel amd64
+# virtual/dist-kernel amd64
 virtual/dotnet-sdk amd64
 virtual/editor amd64
 virtual/fam amd64

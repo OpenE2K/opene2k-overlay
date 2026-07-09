@@ -28,3 +28,4 @@ sys-kernel/linux-headers
 sys-libs/glibc
 sys-libs/libcap
 sys-libs/libseccomp
+virtual/dist-kernel
