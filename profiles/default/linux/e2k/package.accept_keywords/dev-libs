@@ -14,6 +14,7 @@ dev-libs/libatomic_ops amd64
 dev-libs/libbsd amd64
 dev-libs/libcdio amd64
 dev-libs/libcdio-paranoia amd64
+dev-libs/libedit amd64
 dev-libs/libevdev amd64
 dev-libs/libgcrypt amd64
 dev-libs/libgit2 amd64
@@ -45,3 +46,4 @@ dev-libs/vala-common amd64
 dev-libs/wayland amd64
 dev-libs/wayland-protocols amd64
 dev-libs/xxhash amd64
+dev-libs/yyjson amd64

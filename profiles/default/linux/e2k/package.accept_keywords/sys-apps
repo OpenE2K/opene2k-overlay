@@ -3,6 +3,7 @@ sys-apps/attr amd64
 sys-apps/baselayout amd64
 sys-apps/coreutils amd64
 sys-apps/dbus amd64
+sys-apps/debianutils amd64
 sys-apps/ethtool amd64
 sys-apps/file amd64
 sys-apps/findutils amd64
@@ -22,6 +23,7 @@ sys-apps/lm-sensors amd64
 sys-apps/lsb-release amd64
 sys-apps/man-db amd64
 sys-apps/man-pages amd64
+sys-apps/miscfiles amd64
 sys-apps/net-tools amd64
 sys-apps/openrc amd64
 sys-apps/portage amd64

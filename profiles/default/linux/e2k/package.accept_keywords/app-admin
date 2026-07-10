@@ -1,2 +1,5 @@
 app-admin/eselect amd64
+app-admin/metalog amd64
 app-admin/perl-cleaner amd64
+app-admin/sudo amd64
+app-admin/sysklogd amd64

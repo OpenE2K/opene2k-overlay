@@ -1,4 +1,6 @@
 app-shells/bash amd64
+app-shells/bash-completion amd64
+app-shells/gentoo-bashcomp amd64
 app-shells/push amd64
 app-shells/quoter amd64
 app-shells/zsh amd64

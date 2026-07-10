@@ -1,3 +1,4 @@
+net-misc/chrony amd64
 net-misc/curl amd64
 net-misc/dhcpcd amd64
 net-misc/iputils amd64
