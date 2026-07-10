@@ -1,0 +1,12 @@
+# Copyright 2026 OpenE2K
+# Distributed under the terms of the GNU General Public License v2
+
+#layout:
+#arch      profile_directory                                       status
+
+e2k        default/linux/e2k/23.0                                  exp
+e2k        default/linux/e2k/23.0/systemd                          exp
+e2k        default/linux/e2k/23.0/desktop                          exp
+e2k        default/linux/e2k/23.0/desktop/systemd                  exp
+e2k        default/linux/e2k/23.0/desktop/plasma                   exp
+e2k        default/linux/e2k/23.0/desktop/plasma/systemd           exp
