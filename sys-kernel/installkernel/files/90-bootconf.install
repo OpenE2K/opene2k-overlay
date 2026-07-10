@@ -93,7 +93,9 @@ add_label() {
 	partnum=${bootdev##*[a-zA-Z]}
 	bootpart=$(( partnum - 1 ))
 
-	cur_cmdline=$(sed -e 's/root=[^[:space:]]*//g' /proc/cmdline)
+	local cmdfile=/proc/cmdline
+	[[ -r /etc/kernel/cmdline ]] && cmdfile=/etc/kernel/cmdline
+	cur_cmdline=$(sed -e 's/root=[^[:space:]]*//g' "${cmdfile}")
 	cmdline="${cur_cmdline} root=${rootdev}"
 
 	{
@@ -106,14 +108,15 @@ add_label() {
 }
 
 default_label() {
-	local n
-	n=$(grep -n '^default=' "${BOOTCONF}" | tail -n 1 | cut -d: -f1)
-	if [[ -z ${n} ]]; then
-		sed -i "1 i default=${label}" "${BOOTCONF}"
-	else
-		(( n++ ))
-		sed -i "${n} i default=${label}" "${BOOTCONF}"
-	fi
+	local timeout
+	# preserve timeout, else default to 3
+	timeout=$(sed -n 's/^timeout=//p' "${BOOTCONF}" | tail -n 1)
+	[[ -n ${timeout} ]] || timeout=3
+
+	# keep exactly one default=/timeout= at the top
+	sed -i -e '/^default=/d' -e '/^timeout=/d' "${BOOTCONF}"
+	sed -i "1 i timeout=${timeout}" "${BOOTCONF}"
+	sed -i "1 i default=${label}" "${BOOTCONF}"
 }
 
 main() {

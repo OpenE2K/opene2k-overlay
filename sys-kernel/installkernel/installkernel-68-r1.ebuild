@@ -98,6 +98,11 @@ src_install() {
 	keepdir /usr/lib/kernel/preinst.d
 	keepdir /usr/lib/kernel/postinst.d
 
+	if use dracut; then
+		insinto /usr/lib/dracut/dracut.conf.d
+		newins "${FILESDIR}"/00-e2k-ptr64.conf 00-e2k-ptr64.conf
+	fi
+
 	exeinto /usr/lib/kernel/preinst.d
 	doexe hooks/05-check-chroot.install
 	doexe hooks/99-check-diskspace.install
