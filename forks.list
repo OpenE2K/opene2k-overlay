@@ -19,6 +19,7 @@ media-libs/x264
 media-sound/lame
 media-video/pipewire
 net-libs/gnutls
+net-libs/libssh2
 sys-apps/diffutils
 sys-apps/grep
 sys-apps/kbd
