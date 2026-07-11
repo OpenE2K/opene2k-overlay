@@ -3,8 +3,10 @@ app-portage/eix
 dev-build/cmake
 dev-debug/gdb
 dev-lang/python
+dev-lang/rust-bin
 dev-libs/libffi
 dev-libs/openssl
+dev-qt/qtbase
 media-gfx/graphite2
 media-libs/libilbc
 media-libs/libplacebo
