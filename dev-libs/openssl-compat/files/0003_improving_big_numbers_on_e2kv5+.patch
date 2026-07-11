@@ -1,0 +1,719 @@
+Optimization of big numbers computing
+
+diff -ruN openssl-1.1.1n/Configurations/00-base-templates.conf openssl-1.1.1n-patch/Configurations/00-base-templates.conf
+--- openssl-1.1.1n/Configurations/00-base-templates.conf	2022-03-15 17:37:47.000000000 +0300
++++ openssl-1.1.1n-patch/Configurations/00-base-templates.conf	2022-04-26 15:48:28.743678883 +0300
+@@ -235,6 +235,10 @@
+ 	poly1305_asm_src=> "poly1305-x86_64.s",
+ 	keccak1600_asm_src	=> "keccak1600-x86_64.s",
+     },
++    e2k_asm => {
++	template	=> 1,
++	bn_asm_src      => "asm/e2k-intrinsics.c",
++    },
+     ia64_asm => {
+ 	template	=> 1,
+ 	cpuid_asm_src   => "ia64cpuid.s",
+diff -ruN openssl-1.1.1n/Configurations/10-main.conf openssl-1.1.1n-patch/Configurations/10-main.conf
+--- openssl-1.1.1n/Configurations/10-main.conf	2022-04-26 15:47:16.270213418 +0300
++++ openssl-1.1.1n-patch/Configurations/10-main.conf	2022-04-26 15:48:28.743678883 +0300
+@@ -920,7 +920,7 @@
+ 
+ #### E2K Linux setups
+     "linux-e2k" => {
+-        inherit_from     => [ "linux-generic64" ],
++        inherit_from     => [ "linux-generic64", asm("e2k_asm") ],
+     },
+ 
+ #### *BSD
+diff -ruN openssl-1.1.1n/crypto/bn/asm/e2k-intrinsics.c openssl-1.1.1n-patch/crypto/bn/asm/e2k-intrinsics.c
+--- openssl-1.1.1n/crypto/bn/asm/e2k-intrinsics.c	1970-01-01 03:00:00.000000000 +0300
++++ openssl-1.1.1n-patch/crypto/bn/asm/e2k-intrinsics.c	2022-04-26 15:48:28.743678883 +0300
+@@ -0,0 +1,658 @@
++/*
++ * Copyright 2022 AO MCST.
++ * Copyright 2002-2018 The OpenSSL Project Authors. All Rights Reserved.
++ *
++ * Licensed under the OpenSSL license (the "License").  You may not use
++ * this file except in compliance with the License.  You can obtain a copy
++ * in the file LICENSE in the source distribution or at
++ * https://www.openssl.org/source/license.html
++ */
++
++#include "../bn_local.h"
++#if 0
++# include "../bn_asm.c"         /* use generic version */
++#else
++
++#include <assert.h>
++#include <e2kbuiltin.h>
++
++/*-
++ * E2Kv5+ BIGNUM accelerator version 0.1, March 2022.
++ *
++ * Implemented by Alexander Troosh <trush@yandex.ru>
++ * base on file x86_64-gcc.c by Andy Polyakov <appro@openssl.org>
++ *
++ * Rights for redistribution and usage in source and binary forms are
++ * granted according to the OpenSSL license. Warranty of any kind is
++ * disclaimed.
++ *
++ * Q. How much faster does it get?
++ * A. 'apps/openssl speed rsa dsa' output without this module:
++ *
++ *                      sign/s verify/s
++ *      rsa  512 bits   2280.7  38985.4
++ *      rsa 1024 bits    701.7  18491.8
++ *      rsa 2048 bits    120.4   6719.1
++ *      rsa 3072 bits     46.1   3133.0
++ *      rsa 4096 bits     26.2   2128.1
++ *      rsa 7680 bits      4.6    649.6
++ *      rsa 15360 bits     0.7    179.1
++ *                      sign/s verify/s
++ *      dsa  512 bits   1860.1   3056.3
++ *      dsa 1024 bits    926.2   1418.8
++ *      dsa 2048 bits    463.5    522.3
++ *
++ *    'apps/openssl speed rsa dsa' output with this module (e2c3):
++ *
++ *                      sign/s verify/s
++ *      rsa  512 bits   2563.7  46924.6
++ *      rsa 1024 bits    836.1  22448.2
++ *      rsa 2048 bits    179.0   9007.9
++ *      rsa 3072 bits     61.9   4416.7
++ *      rsa 4096 bits     35.1   3025.5
++ *      rsa 7680 bits      6.5    949.8
++ *      rsa 15360 bits     1.0    265.0
++ *                      sign/s verify/s
++ *      dsa  512 bits   1981.7   3366.7
++ *      dsa 1024 bits   1268.5   1749.7
++ *      dsa 2048 bits    600.1    710.3
++ */
++
++#undef mul_add
++#undef mul
++#undef sqr
++
++#if __iset__ < 5
++#define mul_add(r,a,w,c) {                  \
++        BN_ULONG high,low,ret,tmp=(a);      \
++        ret =  (r);                         \
++        high=  __builtin_e2k_umulhd(w,tmp); \
++        ret += (c);                         \
++        low =  (w) * tmp;                   \
++        (c) =  (ret<(c))?1:0;               \
++        (c) += high;                        \
++        ret += low;                         \
++        (c) += (ret<low)?1:0;               \
++        (r) =  ret;                         \
++        }
++
++#define mul(r,a,w,c)    {                  \
++        BN_ULONG high,low,ret,ta=(a);      \
++        low =  (w) * ta;                   \
++        high=  __builtin_e2k_umulhd(w,ta); \
++        ret =  low + (c);                  \
++        (c) =  high;                       \
++        (c) += (ret<low)?1:0;              \
++        (r) =  ret;                        \
++        }
++
++#  define sqr(r0,r1,a)    {                   \
++        BN_ULONG tmp=(a);                     \
++        (r0) = tmp * tmp;                     \
++        (r1) = __builtin_e2k_umulhd(tmp,tmp); \
++        }
++
++#else
++
++/* {cout[64],rout[64]} = (rin[64] + cin[64]) + a[64]*w[64] */
++#define mul_add(r,a,w,c) {                      \
++        BN_ULONG high,low,ret,ta=(a),tc=(c),q;  \
++        ret = (r);                              \
++        high= __builtin_e2k_umulhd(w,ta);       \
++        low = (w) * ta;                         \
++        q = __builtin_e2k_addcd_c(ret, tc, 0);  \
++        ret += tc;                              \
++        c = __builtin_e2k_addcd_c(ret, low, 0); \
++        r = ret + low;                          \
++        c += high + q;                          \
++        }
++
++#define mul(r,a,w,c)    {                     \
++        BN_ULONG high,low,q,ta=(a);           \
++        low =  (w) * ta;                      \
++        high=  __builtin_e2k_umulhd(w,ta);    \
++        q = __builtin_e2k_addcd_c(low, c, 0); \
++        r = low + (c);                        \
++        c = high + q;                         \
++        }
++
++#define sqr(r0,r1,a)    {                      \
++        BN_ULONG tmp=(a);                      \
++        (r0) = tmp * tmp;                      \
++        (r1) = __builtin_e2k_umulhd(tmp,tmp);  \
++        }
++
++#endif
++
++BN_ULONG bn_mul_add_words(BN_ULONG *rp, const BN_ULONG *ap, int num,
++                          BN_ULONG w)
++{
++    BN_ULONG c1 = 0;
++    BN_ULONG * __restrict__ rr = rp;
++
++    if (num <= 0)
++        return c1;
++
++#pragma loop count(25)
++    while (num) {
++        mul_add(rr[0], ap[0], w, c1);
++        ap++;
++        rr++;
++        num--;
++    }
++
++    return c1;
++}
++
++BN_ULONG bn_mul_words(BN_ULONG *rp, const BN_ULONG *ap, int num, BN_ULONG w)
++{
++    BN_ULONG c1 = 0;
++    BN_ULONG * __restrict__ rr = rp;
++
++    if (num <= 0)
++        return c1;
++
++#pragma loop count(64)
++    while (num) {
++        mul(rr[0], ap[0], w, c1);
++        ap++;
++        rr++;
++        num--;
++    }
++    return c1;
++}
++
++void bn_sqr_words(BN_ULONG *r, const BN_ULONG *a, int n)
++{
++    BN_ULONG * __restrict__ rr = r;
++
++    if (n <= 0)
++        return;
++
++#pragma loop count(64)
++    while (n) {
++        sqr(rr[0], rr[1], a[0]);
++        a++;
++        rr += 2;
++        n--;
++    }
++}
++
++#if 0
++/* x86_64 support 128 bit by 64 bit division */
++BN_ULONG bn_div_words(BN_ULONG h, BN_ULONG l, BN_ULONG d)
++{
++    BN_ULONG ret, waste;
++
++ asm("divq      %4":"=a"(ret), "=d"(waste)
++ :     "a"(l), "d"(h), "r"(d)
++ :     "cc");
++
++    return ret;
++}
++#else
++/* Divide h,l by d and return the result. */
++/* I need to test this some more :-( */
++BN_ULONG bn_div_words(BN_ULONG h, BN_ULONG l, BN_ULONG d)
++{
++    BN_ULONG dh, dl, q, ret = 0, th, tl, t;
++    int i, count = 2;
++
++    if (d == 0)
++        return BN_MASK2;
++
++    i = BN_num_bits_word(d);
++    assert((i == BN_BITS2) || (h <= (BN_ULONG)1 << i));
++
++    i = BN_BITS2 - i;
++    if (h >= d)
++        h -= d;
++
++    if (i) {
++        d <<= i;
++        h = (h << i) | (l >> (BN_BITS2 - i));
++        l <<= i;
++    }
++    dh = (d & BN_MASK2h) >> BN_BITS4;
++    dl = (d & BN_MASK2l);
++    for (;;) {
++        if ((h >> BN_BITS4) == dh)
++            q = BN_MASK2l;
++        else
++            q = h / dh;
++
++        th = q * dh;
++        tl = dl * q;
++        for (;;) {
++            t = h - th;
++            if ((t & BN_MASK2h) ||
++                ((tl) <= ((t << BN_BITS4) | ((l & BN_MASK2h) >> BN_BITS4))))
++                break;
++            q--;
++            th -= dh;
++            tl -= dl;
++        }
++        t = (tl >> BN_BITS4);
++        tl = (tl << BN_BITS4) & BN_MASK2h;
++        th += t;
++
++        if (l < tl)
++            th++;
++        l -= tl;
++        if (h < th) {
++            h += d;
++            q--;
++        }
++        h -= th;
++
++        if (--count == 0)
++            break;
++
++        ret = q << BN_BITS4;
++        h = ((h << BN_BITS4) | (l >> BN_BITS4)) & BN_MASK2;
++        l = (l & BN_MASK2l) << BN_BITS4;
++    }
++    ret |= q;
++    return ret;
++}
++#endif
++
++BN_ULONG bn_add_words(BN_ULONG *y, const BN_ULONG *a, const BN_ULONG *b,
++                      int n)
++{
++    BN_ULONG c = 0;
++    BN_ULONG * __restrict__ r = y;
++
++    if (n <= 0)
++        return (BN_ULONG)0;
++
++#pragma loop count(25)
++    while (n) {
++#if __iset__ < 5
++        BN_ULONG l, t = a[0];
++        t = (t + c) & BN_MASK2;
++        c = (t < c);
++        l = (t + b[0]) & BN_MASK2;
++        c += (l < t);
++        r[0] = l;
++#else
++        BN_ULONG q = __builtin_e2k_addcd_c(a[0], b[0], c);
++        r[0] = __builtin_e2k_addcd  (a[0], b[0], c); c = q;
++#endif
++        a++;
++        b++;
++        r++;
++        n--;
++    }
++    return c;
++}
++
++BN_ULONG bn_sub_words(BN_ULONG *y, const BN_ULONG *a, const BN_ULONG *b,
++                      int n)
++{
++    BN_ULONG c = 0;
++    BN_ULONG * __restrict__ r = y;
++
++    if (n <= 0)
++        return (BN_ULONG)0;
++
++#pragma loop count(25)
++    while (n) {
++#if __iset__ < 5
++        BN_ULONG t1 = a[0];
++        BN_ULONG t2 = b[0];
++        r[0] = (t1 - t2 - c) & BN_MASK2;
++        if (t1 != t2)
++            c = (t1 < t2);
++#else
++        BN_ULONG q = __builtin_e2k_subcd_c(a[0], b[0], c);
++        r[0] = __builtin_e2k_subcd  (a[0], b[0], c); c = q;
++#endif
++        a++;
++        b++;
++        r++;
++        n--;
++    }
++    return c;
++}
++
++/* mul_add_c(a,b,c0,c1,c2)  -- c+=a*b for three word number c=(c2,c1,c0) */
++/* mul_add_c2(a,b,c0,c1,c2) -- c+=2*a*b for three word number c=(c2,c1,c0) */
++/* sqr_add_c(a,i,c0,c1,c2)  -- c+=a[i]^2 for three word number c=(c2,c1,c0) */
++/*
++ * sqr_add_c2(a,i,c0,c1,c2) -- c+=2*a[i]*a[j] for three word number
++ * c=(c2,c1,c0)
++ */
++
++/*
++ * Keep in mind that carrying into high part of multiplication result
++ * can not overflow, because it cannot be all-ones.
++ */
++#if  __iset__ < 5
++/* original macros */
++#  define mul_add_c(a,b,c0,c1,c2)       do {    \
++        BN_ULONG ta = (a), tb = (b);            \
++        BN_ULONG lo, hi;                        \
++        BN_UMULT_LOHI(lo,hi,ta,tb);             \
++        c0 += lo; hi += (c0<lo)?1:0;            \
++        c1 += hi; c2 += (c1<hi)?1:0;            \
++        } while(0)
++
++#  define mul_add_c2(a,b,c0,c1,c2)      do {    \
++        BN_ULONG ta = (a), tb = (b);            \
++        BN_ULONG lo, hi, tt;                    \
++        BN_UMULT_LOHI(lo,hi,ta,tb);             \
++        c0 += lo; tt = hi+((c0<lo)?1:0);        \
++        c1 += tt; c2 += (c1<tt)?1:0;            \
++        c0 += lo; hi += (c0<lo)?1:0;            \
++        c1 += hi; c2 += (c1<hi)?1:0;            \
++        } while(0)
++
++#  define sqr_add_c(a,i,c0,c1,c2)       do {    \
++        BN_ULONG ta = (a)[i];                   \
++        BN_ULONG lo, hi;                        \
++        BN_UMULT_LOHI(lo,hi,ta,ta);             \
++        c0 += lo; hi += (c0<lo)?1:0;            \
++        c1 += hi; c2 += (c1<hi)?1:0;            \
++        } while(0)
++
++#else
++#  define mul_add_c(a,b,c0,c1,c2)       do {    \
++        BN_ULONG ta = (a), tb = (b);            \
++        BN_ULONG lo, hi;                        \
++        int q;                                  \
++        lo = ta * tb;                           \
++        hi = __builtin_e2k_umulhd(ta, tb);      \
++        q  = __builtin_e2k_addcd_c(c0, lo, 0);  \
++        c0 += lo;                               \
++        c2 += __builtin_e2k_addcd_c(c1, hi, q); \
++        c1 = __builtin_e2k_addcd(c1, hi, q);    \
++        } while(0)
++
++#  define mul_add_c2(a,b,c0,c1,c2)      do {        \
++        BN_ULONG ta = (a), tb = (b);                \
++        BN_ULONG lo, hi, lo_msb;                    \
++        int q;                                      \
++        lo = ta * tb;                               \
++        hi = __builtin_e2k_umulhd(ta, tb);          \
++                                                    \
++        lo_msb = lo >> 63; lo <<= 1;                \
++        c2 += hi >> 63;                             \
++        hi = __builtin_e2k_insfd(hi, 0x7f, lo_msb); \
++                                                    \
++        q  = __builtin_e2k_addcd_c(c0, lo, 0);      \
++        c0 += lo;                                   \
++        c2 += __builtin_e2k_addcd_c(c1, hi, q);     \
++        c1 = __builtin_e2k_addcd(c1, hi, q);        \
++        } while(0)
++
++#  define sqr_add_c(a,i,c0,c1,c2)       do {    \
++        BN_ULONG ta = (a)[i];                   \
++        BN_ULONG lo, hi;                        \
++        int q;                                  \
++        lo = ta * ta;                           \
++        hi = __builtin_e2k_umulhd(ta, ta);      \
++        q  = __builtin_e2k_addcd_c(c0, lo, 0);  \
++        c0 += lo;                               \
++        c2 += __builtin_e2k_addcd_c(c1, hi, q); \
++        c1 = __builtin_e2k_addcd(c1, hi, q);    \
++        } while(0)
++#endif
++
++# define sqr_add_c2(a,i,j,c0,c1,c2)      \
++        mul_add_c2((a)[i],(a)[j],c0,c1,c2)
++
++void bn_mul_comba8(BN_ULONG *y, BN_ULONG *a, BN_ULONG *b)
++{
++    BN_ULONG c1, c2, c3;
++    BN_ULONG * __restrict__ r = y;
++
++    c1 = 0;
++    c2 = 0;
++    c3 = 0;
++    mul_add_c(a[0], b[0], c1, c2, c3);
++    r[0] = c1;
++    c1 = 0;
++    mul_add_c(a[0], b[1], c2, c3, c1);
++    mul_add_c(a[1], b[0], c2, c3, c1);
++    r[1] = c2;
++    c2 = 0;
++    mul_add_c(a[2], b[0], c3, c1, c2);
++    mul_add_c(a[1], b[1], c3, c1, c2);
++    mul_add_c(a[0], b[2], c3, c1, c2);
++    r[2] = c3;
++    c3 = 0;
++    mul_add_c(a[0], b[3], c1, c2, c3);
++    mul_add_c(a[1], b[2], c1, c2, c3);
++    mul_add_c(a[2], b[1], c1, c2, c3);
++    mul_add_c(a[3], b[0], c1, c2, c3);
++    r[3] = c1;
++    c1 = 0;
++    mul_add_c(a[4], b[0], c2, c3, c1);
++    mul_add_c(a[3], b[1], c2, c3, c1);
++    mul_add_c(a[2], b[2], c2, c3, c1);
++    mul_add_c(a[1], b[3], c2, c3, c1);
++    mul_add_c(a[0], b[4], c2, c3, c1);
++    r[4] = c2;
++    c2 = 0;
++    mul_add_c(a[0], b[5], c3, c1, c2);
++    mul_add_c(a[1], b[4], c3, c1, c2);
++    mul_add_c(a[2], b[3], c3, c1, c2);
++    mul_add_c(a[3], b[2], c3, c1, c2);
++    mul_add_c(a[4], b[1], c3, c1, c2);
++    mul_add_c(a[5], b[0], c3, c1, c2);
++    r[5] = c3;
++    c3 = 0;
++    mul_add_c(a[6], b[0], c1, c2, c3);
++    mul_add_c(a[5], b[1], c1, c2, c3);
++    mul_add_c(a[4], b[2], c1, c2, c3);
++    mul_add_c(a[3], b[3], c1, c2, c3);
++    mul_add_c(a[2], b[4], c1, c2, c3);
++    mul_add_c(a[1], b[5], c1, c2, c3);
++    mul_add_c(a[0], b[6], c1, c2, c3);
++    r[6] = c1;
++    c1 = 0;
++    mul_add_c(a[0], b[7], c2, c3, c1);
++    mul_add_c(a[1], b[6], c2, c3, c1);
++    mul_add_c(a[2], b[5], c2, c3, c1);
++    mul_add_c(a[3], b[4], c2, c3, c1);
++    mul_add_c(a[4], b[3], c2, c3, c1);
++    mul_add_c(a[5], b[2], c2, c3, c1);
++    mul_add_c(a[6], b[1], c2, c3, c1);
++    mul_add_c(a[7], b[0], c2, c3, c1);
++    r[7] = c2;
++    c2 = 0;
++    mul_add_c(a[7], b[1], c3, c1, c2);
++    mul_add_c(a[6], b[2], c3, c1, c2);
++    mul_add_c(a[5], b[3], c3, c1, c2);
++    mul_add_c(a[4], b[4], c3, c1, c2);
++    mul_add_c(a[3], b[5], c3, c1, c2);
++    mul_add_c(a[2], b[6], c3, c1, c2);
++    mul_add_c(a[1], b[7], c3, c1, c2);
++    r[8] = c3;
++    c3 = 0;
++    mul_add_c(a[2], b[7], c1, c2, c3);
++    mul_add_c(a[3], b[6], c1, c2, c3);
++    mul_add_c(a[4], b[5], c1, c2, c3);
++    mul_add_c(a[5], b[4], c1, c2, c3);
++    mul_add_c(a[6], b[3], c1, c2, c3);
++    mul_add_c(a[7], b[2], c1, c2, c3);
++    r[9] = c1;
++    c1 = 0;
++    mul_add_c(a[7], b[3], c2, c3, c1);
++    mul_add_c(a[6], b[4], c2, c3, c1);
++    mul_add_c(a[5], b[5], c2, c3, c1);
++    mul_add_c(a[4], b[6], c2, c3, c1);
++    mul_add_c(a[3], b[7], c2, c3, c1);
++    r[10] = c2;
++    c2 = 0;
++    mul_add_c(a[4], b[7], c3, c1, c2);
++    mul_add_c(a[5], b[6], c3, c1, c2);
++    mul_add_c(a[6], b[5], c3, c1, c2);
++    mul_add_c(a[7], b[4], c3, c1, c2);
++    r[11] = c3;
++    c3 = 0;
++    mul_add_c(a[7], b[5], c1, c2, c3);
++    mul_add_c(a[6], b[6], c1, c2, c3);
++    mul_add_c(a[5], b[7], c1, c2, c3);
++    r[12] = c1;
++    c1 = 0;
++    mul_add_c(a[6], b[7], c2, c3, c1);
++    mul_add_c(a[7], b[6], c2, c3, c1);
++    r[13] = c2;
++    c2 = 0;
++    mul_add_c(a[7], b[7], c3, c1, c2);
++    r[14] = c3;
++    r[15] = c1;
++}
++
++void bn_mul_comba4(BN_ULONG *y, BN_ULONG *a, BN_ULONG *b)
++{
++    BN_ULONG c1, c2, c3;
++    BN_ULONG * __restrict__ r = y;
++
++    c1 = 0;
++    c2 = 0;
++    c3 = 0;
++    mul_add_c(a[0], b[0], c1, c2, c3);
++    r[0] = c1;
++    c1 = 0;
++    mul_add_c(a[0], b[1], c2, c3, c1);
++    mul_add_c(a[1], b[0], c2, c3, c1);
++    r[1] = c2;
++    c2 = 0;
++    mul_add_c(a[2], b[0], c3, c1, c2);
++    mul_add_c(a[1], b[1], c3, c1, c2);
++    mul_add_c(a[0], b[2], c3, c1, c2);
++    r[2] = c3;
++    c3 = 0;
++    mul_add_c(a[0], b[3], c1, c2, c3);
++    mul_add_c(a[1], b[2], c1, c2, c3);
++    mul_add_c(a[2], b[1], c1, c2, c3);
++    mul_add_c(a[3], b[0], c1, c2, c3);
++    r[3] = c1;
++    c1 = 0;
++    mul_add_c(a[3], b[1], c2, c3, c1);
++    mul_add_c(a[2], b[2], c2, c3, c1);
++    mul_add_c(a[1], b[3], c2, c3, c1);
++    r[4] = c2;
++    c2 = 0;
++    mul_add_c(a[2], b[3], c3, c1, c2);
++    mul_add_c(a[3], b[2], c3, c1, c2);
++    r[5] = c3;
++    c3 = 0;
++    mul_add_c(a[3], b[3], c1, c2, c3);
++    r[6] = c1;
++    r[7] = c2;
++}
++
++void bn_sqr_comba8(BN_ULONG *y, const BN_ULONG *a)
++{
++    BN_ULONG c1, c2, c3;
++    BN_ULONG * __restrict__ r = y;
++
++    c1 = 0;
++    c2 = 0;
++    c3 = 0;
++    sqr_add_c(a, 0, c1, c2, c3);
++    r[0] = c1;
++    c1 = 0;
++    sqr_add_c2(a, 1, 0, c2, c3, c1);
++    r[1] = c2;
++    c2 = 0;
++    sqr_add_c(a, 1, c3, c1, c2);
++    sqr_add_c2(a, 2, 0, c3, c1, c2);
++    r[2] = c3;
++    c3 = 0;
++    sqr_add_c2(a, 3, 0, c1, c2, c3);
++    sqr_add_c2(a, 2, 1, c1, c2, c3);
++    r[3] = c1;
++    c1 = 0;
++    sqr_add_c(a, 2, c2, c3, c1);
++    sqr_add_c2(a, 3, 1, c2, c3, c1);
++    sqr_add_c2(a, 4, 0, c2, c3, c1);
++    r[4] = c2;
++    c2 = 0;
++    sqr_add_c2(a, 5, 0, c3, c1, c2);
++    sqr_add_c2(a, 4, 1, c3, c1, c2);
++    sqr_add_c2(a, 3, 2, c3, c1, c2);
++    r[5] = c3;
++    c3 = 0;
++    sqr_add_c(a, 3, c1, c2, c3);
++    sqr_add_c2(a, 4, 2, c1, c2, c3);
++    sqr_add_c2(a, 5, 1, c1, c2, c3);
++    sqr_add_c2(a, 6, 0, c1, c2, c3);
++    r[6] = c1;
++    c1 = 0;
++    sqr_add_c2(a, 7, 0, c2, c3, c1);
++    sqr_add_c2(a, 6, 1, c2, c3, c1);
++    sqr_add_c2(a, 5, 2, c2, c3, c1);
++    sqr_add_c2(a, 4, 3, c2, c3, c1);
++    r[7] = c2;
++    c2 = 0;
++    sqr_add_c(a, 4, c3, c1, c2);
++    sqr_add_c2(a, 5, 3, c3, c1, c2);
++    sqr_add_c2(a, 6, 2, c3, c1, c2);
++    sqr_add_c2(a, 7, 1, c3, c1, c2);
++    r[8] = c3;
++    c3 = 0;
++    sqr_add_c2(a, 7, 2, c1, c2, c3);
++    sqr_add_c2(a, 6, 3, c1, c2, c3);
++    sqr_add_c2(a, 5, 4, c1, c2, c3);
++    r[9] = c1;
++    c1 = 0;
++    sqr_add_c(a, 5, c2, c3, c1);
++    sqr_add_c2(a, 6, 4, c2, c3, c1);
++    sqr_add_c2(a, 7, 3, c2, c3, c1);
++    r[10] = c2;
++    c2 = 0;
++    sqr_add_c2(a, 7, 4, c3, c1, c2);
++    sqr_add_c2(a, 6, 5, c3, c1, c2);
++    r[11] = c3;
++    c3 = 0;
++    sqr_add_c(a, 6, c1, c2, c3);
++    sqr_add_c2(a, 7, 5, c1, c2, c3);
++    r[12] = c1;
++    c1 = 0;
++    sqr_add_c2(a, 7, 6, c2, c3, c1);
++    r[13] = c2;
++    c2 = 0;
++    sqr_add_c(a, 7, c3, c1, c2);
++    r[14] = c3;
++    r[15] = c1;
++}
++
++void bn_sqr_comba4(BN_ULONG *y, const BN_ULONG *a)
++{
++    BN_ULONG c1, c2, c3;
++    BN_ULONG * __restrict__ r = y;
++
++    c1 = 0;
++    c2 = 0;
++    c3 = 0;
++    sqr_add_c(a, 0, c1, c2, c3);
++    r[0] = c1;
++    c1 = 0;
++    sqr_add_c2(a, 1, 0, c2, c3, c1);
++    r[1] = c2;
++    c2 = 0;
++    sqr_add_c(a, 1, c3, c1, c2);
++    sqr_add_c2(a, 2, 0, c3, c1, c2);
++    r[2] = c3;
++    c3 = 0;
++    sqr_add_c2(a, 3, 0, c1, c2, c3);
++    sqr_add_c2(a, 2, 1, c1, c2, c3);
++    r[3] = c1;
++    c1 = 0;
++    sqr_add_c(a, 2, c2, c3, c1);
++    sqr_add_c2(a, 3, 1, c2, c3, c1);
++    r[4] = c2;
++    c2 = 0;
++    sqr_add_c2(a, 3, 2, c3, c1, c2);
++    r[5] = c3;
++    c3 = 0;
++    sqr_add_c(a, 3, c1, c2, c3);
++    r[6] = c1;
++    r[7] = c2;
++}
++#endif
+diff -ruN openssl-1.1.1n/crypto/bn/bn_lib.c openssl-1.1.1n-patch/crypto/bn/bn_lib.c
+--- openssl-1.1.1n/crypto/bn/bn_lib.c	2022-03-15 17:37:47.000000000 +0300
++++ openssl-1.1.1n-patch/crypto/bn/bn_lib.c	2022-04-26 15:48:28.743678883 +0300
+@@ -87,6 +87,16 @@
+     return &const_one;
+ }
+ 
++#ifdef __e2k__
++int ossl_inline BN_num_bits_word(BN_ULONG l)
++{
++#if BN_BITS2 > 32
++    return 64 - __builtin_clzll(l);
++#else
++    return 32 - __builtin_clz(l);
++#endif
++}
++#else
+ /*
+  * Old Visual Studio ARM compiler miscompiles BN_num_bits_word()
+  * https://mta.openssl.org/pipermail/openssl-users/2018-August/008465.html
+@@ -144,6 +154,8 @@
+ # pragma optimize("", on)
+ #endif
+ 
++#endif /* __e2k__ */
++
+ /*
+  * This function still leaks `a->dmax`: it's caller's responsibility to
+  * expand the input `a` in advance to a public length.

@@ -1,0 +1,565 @@
+Subject: Optimization of AES GCM/CTR modes for pre-E2Kv7 models
+From: Alexander Troosh <trush@yandex.ru>
+
+
+1) Test of raw speed of GCM and CTR modes:
+
+for m in  aes-128-gcm aes-256-gcm aes-192-gcm \
+          aes-128-ctr aes-256-ctr aes-192-ctr
+do
+  openssl speed -evp $m 2>/dev/null | tail -1
+done
+
+e1c+:
+=====
+aes-128-gcm      26004.25k    37980.59k    43250.30k    44610.22k    45198.47k    45083.31k
+aes-256-gcm      23951.15k    33739.58k    37851.53k    38870.70k    39335.30k    39223.30k
+aes-192-gcm      24934.82k    35731.07k    40243.03k    41683.99k    41921.19k    42083.32k
+aes-128-ctr      30536.37k    46131.31k    53134.56k    54992.21k    55801.49k    55661.91k
+aes-256-ctr      27745.31k    40018.79k    45204.72k    46519.64k    47121.81k    47000.23k
+aes-192-ctr      28976.86k    43001.32k    48687.87k    50570.19k    51097.26k    50970.62k
+=>
+aes-128-gcm      27225.97k    44613.53k    54801.81k    58157.36k    58881.37k    58922.33k
+aes-256-gcm      24773.02k    39486.67k    47104.17k    49712.63k    50387.65k    50255.19k
+aes-192-gcm      26004.28k    41763.24k    50598.49k    53601.78k    54203.73k    54423.37k
+aes-128-ctr      37754.50k    82401.28k   123004.59k   140473.69k   147039.55k   147008.17k
+aes-256-ctr      33384.31k    65904.75k    90587.87k    99477.50k   102863.03k   102760.45k
+aes-192-ctr      35498.53k    72953.69k   104401.85k   116453.38k   121049.81k   120952.15k
+
+e8c2:
+=====
+aes-128-gcm      37209.15k    52809.96k    59136.43k    60964.18k    61491.88k    61527.38k
+aes-256-gcm      34296.26k    47001.45k    51951.19k    53358.59k    53764.10k    53794.13k
+aes-192-gcm      35656.83k    49737.05k    55314.01k    56908.12k    57368.58k    57398.61k
+aes-128-ctr      41530.49k    59573.40k    66830.76k    68930.56k    69569.19k    69615.62k
+aes-256-ctr      37853.83k    52291.37k    57802.24k    59364.35k    59839.83k    59872.60k
+aes-192-ctr      39608.53k    55697.30k    61990.66k    63790.42k    64337.24k    64378.20k
+=>
+aes-128-gcm      41172.07k    69857.39k    87689.39k    93665.28k    95352.15k    95431.34k
+aes-256-gcm      38141.37k    63525.97k    77720.15k    82388.99k    83692.20k    83755.01k
+aes-192-gcm      39608.71k    66377.96k    82372.10k    87653.38k    89137.15k    89210.88k
+aes-128-ctr      60059.20k   135955.14k   214718.72k   251077.63k   264170.15k   265158.66k
+aes-256-ctr      53850.58k   113404.29k   163419.14k   183653.72k   190597.80k   191108.44k
+aes-192-ctr      56785.24k   123345.49k   185420.20k   212113.41k   221443.41k   222139.73k
+
+e2c3:
+=====
+aes-128-gcm      56238.49k    91881.86k   113536.00k   120751.45k   122803.54k   122901.85k
+aes-256-gcm      51205.36k    78371.11k    93586.60k    98443.61k    99803.14k    99871.40k
+aes-192-gcm      53798.84k    84592.11k   102609.07k   108468.22k   110116.86k   110204.25k
+aes-128-ctr      54258.46k    81735.36k    93580.54k    97100.12k    98178.39k    98249.39k
+aes-256-ctr      49237.95k    70860.65k    79593.13k    82124.46k    82897.58k    82952.19k
+aes-192-ctr      51628.07k    75907.84k    86025.64k    88985.94k    89893.55k    89959.08k
+=>
+aes-128-gcm      62449.19k   136348.84k   220411.31k   260741.12k   273170.43k   273793.02k
+aes-256-gcm      56646.72k   116222.57k   172623.53k   196501.16k   203625.81k   203920.73k
+aes-192-gcm      59593.93k   125311.85k   193038.51k   223358.29k   232551.77k   232947.71k
+aes-128-ctr      70073.69k   163325.45k   256656.95k   298485.08k   313715.37k   315015.17k
+aes-256-ctr      62897.05k   134887.89k   193587.46k   216868.86k   225367.38k   225962.67k
+aes-192-ctr      66006.13k   147036.65k   220241.25k   250458.79k   261253.80k   261991.08k
+
+
+2) Speed of security channel (with openssh-9.1p1, fast test - 10MB transfer only):
+
+  for i in `ssh -Q cipher`
+  do
+    dd if=/dev/zero bs=1M count=10 2> /dev/null \
+    | /usr/bin/ssh -c $i root@localhost "(/usr/bin/time -p cat) > /dev/null" 2>&1 \
+    | grep real | tr , . | awk '{print "'$i': "10 / $2" MB/s" }'
+  done
+
+e1c+:
+=====
+aes128-ctr:             17.544 MB/s → 14.286 MB/s
+aes192-ctr:             16.393 MB/s → 13.333 MB/s
+aes256-ctr:             15.625 MB/s → 12.500 MB/s
+aes128-gcm@openssh.com: 17.241 MB/s → 12.048 MB/s
+aes256-gcm@openssh.com: 15.385 MB/s → 19.608 MB/s
+                                         
+e8c2:                                    
+=====                                    
+aes128-ctr:             28.571 MB/s → 34.483 MB/s
+aes192-ctr:             27.778 MB/s → 33.333 MB/s
+aes256-ctr:             26.316 MB/s → 43.478 MB/s
+aes128-gcm@openssh.com: 30.303 MB/s → 38.462 MB/s
+aes256-gcm@openssh.com: 27.778 MB/s → 37.037 MB/s
+                                         
+e2c3:                                    
+=====                                    
+aes128-ctr:             31.250 MB/s → 43.478 MB/s
+aes192-ctr:             28.571 MB/s → 41.667 MB/s
+aes256-ctr:             29.412 MB/s → 37.037 MB/s
+aes128-gcm@openssh.com: 38.462 MB/s → 47.619 MB/s
+aes256-gcm@openssh.com: 35.714 MB/s → 41.667 MB/s
+
+
+
+diff --git a/crypto/aes/aes_core.c b/crypto/aes/aes_core.c
+index 5f2200a..1dff2fd 100644
+--- a/crypto/aes/aes_core.c
++++ b/crypto/aes/aes_core.c
+@@ -2277,3 +2277,401 @@ int AES_set_decrypt_key(const unsigned char *userKey, const int bits,
+ }
+ 
+ #endif /* AES_ASM */
++
++#ifdef __e2k__
++void e2kv2_ctr32_encrypt_blocks_x2(const void *in, void *out,
++                                   size_t blocks, const AES_KEY *key,
++                                   const char *ivec)
++{
++    u32 * __restrict__ input  = (u32 *)in;
++    u32 * __restrict__ output = (u32 *)out;
++
++    const u32 *rk = key->rd_key;
++    const int rounds = key->rounds;
++
++    const u64 last_key0 = __builtin_bswap32(rk[rounds * 4 + 0]);
++    const u64 last_key1 = __builtin_bswap32(rk[rounds * 4 + 1]);
++    const u64 last_key2 = __builtin_bswap32(rk[rounds * 4 + 2]);
++    const u64 last_key3 = __builtin_bswap32(rk[rounds * 4 + 3]);
++
++    const u64 ivec_w0_xor_rk0 = __builtin_bswap32(((u32 *)ivec)[0]) ^ (u64)rk[0];
++    const u64 ivec_w1_xor_rk1 = __builtin_bswap32(((u32 *)ivec)[1]) ^ (u64)rk[1];
++    const u64 ivec_w2_xor_rk2 = __builtin_bswap32(((u32 *)ivec)[2]) ^ (u64)rk[2];
++
++    u64 ivec_w3a = __builtin_bswap32(((u32 *)ivec)[3]);
++    u64 ivec_w3b = ivec_w3a + 1;
++
++    u64 s0a, s1a, s2a, s3a, t0a, t1a, t2a, t3a;
++    u64 s0b, s1b, s2b, s3b, t0b, t1b, t2b, t3b;
++    u64 r1t0, r1t1, r1t2, r1t3;
++
++
++    /* round 1a: */
++    s0a = ivec_w0_xor_rk0;
++    s1a = ivec_w1_xor_rk1;
++    s2a = ivec_w2_xor_rk2;
++
++    r1t0 = (u64)Te0[s0a  >> 24] ^ (u64)Te1[(s1a  >> 16) & 0xff] ^ (u64)Te2[(s2a  >>  8) & 0xff] ^                         (u64)rk[ 4];
++    r1t1 = (u64)Te0[s1a  >> 24] ^ (u64)Te1[(s2a  >> 16) & 0xff] ^                                 (u64)Te3[s0a  & 0xff] ^ (u64)rk[ 5];
++    r1t2 = (u64)Te0[s2a  >> 24] ^                                 (u64)Te2[(s0a  >>  8) & 0xff] ^ (u64)Te3[s1a  & 0xff] ^ (u64)rk[ 6];
++    r1t3 =                        (u64)Te1[(s0a  >> 16) & 0xff] ^ (u64)Te2[(s1a  >>  8) & 0xff] ^ (u64)Te3[s2a  & 0xff] ^ (u64)rk[ 7];
++
++
++#pragma unroll(1)
++    while(blocks >= 2)
++    {
++        blocks -= 2;
++
++        s3a = ivec_w3a ^ (u64)rk[3];
++        s3b = ivec_w3b ^ (u64)rk[3];
++
++        /* round 1b: */
++        t0a = r1t0 ^ (u64)Te3[ s3a & 0xff];
++        t1a = r1t1 ^ (u64)Te2[(s3a >>  8) & 0xff];
++        t2a = r1t2 ^ (u64)Te1[(s3a >> 16) & 0xff];
++        t3a = r1t3 ^ (u64)Te0[ s3a >> 24];
++
++        t0b = r1t0 ^ (u64)Te3[ s3b & 0xff];
++        t1b = r1t1 ^ (u64)Te2[(s3b >>  8) & 0xff];
++        t2b = r1t2 ^ (u64)Te1[(s3b >> 16) & 0xff];
++        t3b = r1t3 ^ (u64)Te0[ s3b >> 24];
++
++        /* round 2: */
++        s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[ 8];
++        s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[ 9];
++        s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[10];
++        s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[11];
++
++        s0b = (u64)Te0[t0b >> 24] ^ (u64)Te1[(t1b >> 16) & 0xff] ^ (u64)Te2[(t2b >>  8) & 0xff] ^ (u64)Te3[t3b & 0xff] ^ (u64)rk[ 8];
++        s1b = (u64)Te0[t1b >> 24] ^ (u64)Te1[(t2b >> 16) & 0xff] ^ (u64)Te2[(t3b >>  8) & 0xff] ^ (u64)Te3[t0b & 0xff] ^ (u64)rk[ 9];
++        s2b = (u64)Te0[t2b >> 24] ^ (u64)Te1[(t3b >> 16) & 0xff] ^ (u64)Te2[(t0b >>  8) & 0xff] ^ (u64)Te3[t1b & 0xff] ^ (u64)rk[10];
++        s3b = (u64)Te0[t3b >> 24] ^ (u64)Te1[(t0b >> 16) & 0xff] ^ (u64)Te2[(t1b >>  8) & 0xff] ^ (u64)Te3[t2b & 0xff] ^ (u64)rk[11];
++
++        /* round 3: */
++        t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[12];
++        t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[13];
++        t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[14];
++        t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[15];
++
++        t0b = (u64)Te0[s0b >> 24] ^ (u64)Te1[(s1b >> 16) & 0xff] ^ (u64)Te2[(s2b >>  8) & 0xff] ^ (u64)Te3[s3b & 0xff] ^ (u64)rk[12];
++        t1b = (u64)Te0[s1b >> 24] ^ (u64)Te1[(s2b >> 16) & 0xff] ^ (u64)Te2[(s3b >>  8) & 0xff] ^ (u64)Te3[s0b & 0xff] ^ (u64)rk[13];
++        t2b = (u64)Te0[s2b >> 24] ^ (u64)Te1[(s3b >> 16) & 0xff] ^ (u64)Te2[(s0b >>  8) & 0xff] ^ (u64)Te3[s1b & 0xff] ^ (u64)rk[14];
++        t3b = (u64)Te0[s3b >> 24] ^ (u64)Te1[(s0b >> 16) & 0xff] ^ (u64)Te2[(s1b >>  8) & 0xff] ^ (u64)Te3[s2b & 0xff] ^ (u64)rk[15];
++
++        /* round 4: */
++        s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[16];
++        s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[17];
++        s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[18];
++        s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[19];
++
++        s0b = (u64)Te0[t0b >> 24] ^ (u64)Te1[(t1b >> 16) & 0xff] ^ (u64)Te2[(t2b >>  8) & 0xff] ^ (u64)Te3[t3b & 0xff] ^ (u64)rk[16];
++        s1b = (u64)Te0[t1b >> 24] ^ (u64)Te1[(t2b >> 16) & 0xff] ^ (u64)Te2[(t3b >>  8) & 0xff] ^ (u64)Te3[t0b & 0xff] ^ (u64)rk[17];
++        s2b = (u64)Te0[t2b >> 24] ^ (u64)Te1[(t3b >> 16) & 0xff] ^ (u64)Te2[(t0b >>  8) & 0xff] ^ (u64)Te3[t1b & 0xff] ^ (u64)rk[18];
++        s3b = (u64)Te0[t3b >> 24] ^ (u64)Te1[(t0b >> 16) & 0xff] ^ (u64)Te2[(t1b >>  8) & 0xff] ^ (u64)Te3[t2b & 0xff] ^ (u64)rk[19];
++
++        /* round 5: */
++        t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[20];
++        t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[21];
++        t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[22];
++        t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[23];
++
++        t0b = (u64)Te0[s0b >> 24] ^ (u64)Te1[(s1b >> 16) & 0xff] ^ (u64)Te2[(s2b >>  8) & 0xff] ^ (u64)Te3[s3b & 0xff] ^ (u64)rk[20];
++        t1b = (u64)Te0[s1b >> 24] ^ (u64)Te1[(s2b >> 16) & 0xff] ^ (u64)Te2[(s3b >>  8) & 0xff] ^ (u64)Te3[s0b & 0xff] ^ (u64)rk[21];
++        t2b = (u64)Te0[s2b >> 24] ^ (u64)Te1[(s3b >> 16) & 0xff] ^ (u64)Te2[(s0b >>  8) & 0xff] ^ (u64)Te3[s1b & 0xff] ^ (u64)rk[22];
++        t3b = (u64)Te0[s3b >> 24] ^ (u64)Te1[(s0b >> 16) & 0xff] ^ (u64)Te2[(s1b >>  8) & 0xff] ^ (u64)Te3[s2b & 0xff] ^ (u64)rk[23];
++
++        /* round 6: */
++        s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[24];
++        s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[25];
++        s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[26];
++        s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[27];
++
++        s0b = (u64)Te0[t0b >> 24] ^ (u64)Te1[(t1b >> 16) & 0xff] ^ (u64)Te2[(t2b >>  8) & 0xff] ^ (u64)Te3[t3b & 0xff] ^ (u64)rk[24];
++        s1b = (u64)Te0[t1b >> 24] ^ (u64)Te1[(t2b >> 16) & 0xff] ^ (u64)Te2[(t3b >>  8) & 0xff] ^ (u64)Te3[t0b & 0xff] ^ (u64)rk[25];
++        s2b = (u64)Te0[t2b >> 24] ^ (u64)Te1[(t3b >> 16) & 0xff] ^ (u64)Te2[(t0b >>  8) & 0xff] ^ (u64)Te3[t1b & 0xff] ^ (u64)rk[26];
++        s3b = (u64)Te0[t3b >> 24] ^ (u64)Te1[(t0b >> 16) & 0xff] ^ (u64)Te2[(t1b >>  8) & 0xff] ^ (u64)Te3[t2b & 0xff] ^ (u64)rk[27];
++
++        /* round 7: */
++        t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[28];
++        t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[29];
++        t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[30];
++        t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[31];
++
++        t0b = (u64)Te0[s0b >> 24] ^ (u64)Te1[(s1b >> 16) & 0xff] ^ (u64)Te2[(s2b >>  8) & 0xff] ^ (u64)Te3[s3b & 0xff] ^ (u64)rk[28];
++        t1b = (u64)Te0[s1b >> 24] ^ (u64)Te1[(s2b >> 16) & 0xff] ^ (u64)Te2[(s3b >>  8) & 0xff] ^ (u64)Te3[s0b & 0xff] ^ (u64)rk[29];
++        t2b = (u64)Te0[s2b >> 24] ^ (u64)Te1[(s3b >> 16) & 0xff] ^ (u64)Te2[(s0b >>  8) & 0xff] ^ (u64)Te3[s1b & 0xff] ^ (u64)rk[30];
++        t3b = (u64)Te0[s3b >> 24] ^ (u64)Te1[(s0b >> 16) & 0xff] ^ (u64)Te2[(s1b >>  8) & 0xff] ^ (u64)Te3[s2b & 0xff] ^ (u64)rk[31];
++
++        /* round 8: */
++        s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[32];
++        s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[33];
++        s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[34];
++        s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[35];
++
++        s0b = (u64)Te0[t0b >> 24] ^ (u64)Te1[(t1b >> 16) & 0xff] ^ (u64)Te2[(t2b >>  8) & 0xff] ^ (u64)Te3[t3b & 0xff] ^ (u64)rk[32];
++        s1b = (u64)Te0[t1b >> 24] ^ (u64)Te1[(t2b >> 16) & 0xff] ^ (u64)Te2[(t3b >>  8) & 0xff] ^ (u64)Te3[t0b & 0xff] ^ (u64)rk[33];
++        s2b = (u64)Te0[t2b >> 24] ^ (u64)Te1[(t3b >> 16) & 0xff] ^ (u64)Te2[(t0b >>  8) & 0xff] ^ (u64)Te3[t1b & 0xff] ^ (u64)rk[34];
++        s3b = (u64)Te0[t3b >> 24] ^ (u64)Te1[(t0b >> 16) & 0xff] ^ (u64)Te2[(t1b >>  8) & 0xff] ^ (u64)Te3[t2b & 0xff] ^ (u64)rk[35];
++
++        /* round 9: */
++        t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[36];
++        t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[37];
++        t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[38];
++        t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[39];
++
++        t0b = (u64)Te0[s0b >> 24] ^ (u64)Te1[(s1b >> 16) & 0xff] ^ (u64)Te2[(s2b >>  8) & 0xff] ^ (u64)Te3[s3b & 0xff] ^ (u64)rk[36];
++        t1b = (u64)Te0[s1b >> 24] ^ (u64)Te1[(s2b >> 16) & 0xff] ^ (u64)Te2[(s3b >>  8) & 0xff] ^ (u64)Te3[s0b & 0xff] ^ (u64)rk[37];
++        t2b = (u64)Te0[s2b >> 24] ^ (u64)Te1[(s3b >> 16) & 0xff] ^ (u64)Te2[(s0b >>  8) & 0xff] ^ (u64)Te3[s1b & 0xff] ^ (u64)rk[38];
++        t3b = (u64)Te0[s3b >> 24] ^ (u64)Te1[(s0b >> 16) & 0xff] ^ (u64)Te2[(s1b >>  8) & 0xff] ^ (u64)Te3[s2b & 0xff] ^ (u64)rk[39];
++
++        if (rounds > 10) {
++            /* round 10: */
++            s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[40];
++            s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[41];
++            s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[42];
++            s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[43];
++
++            s0b = (u64)Te0[t0b >> 24] ^ (u64)Te1[(t1b >> 16) & 0xff] ^ (u64)Te2[(t2b >>  8) & 0xff] ^ (u64)Te3[t3b & 0xff] ^ (u64)rk[40];
++            s1b = (u64)Te0[t1b >> 24] ^ (u64)Te1[(t2b >> 16) & 0xff] ^ (u64)Te2[(t3b >>  8) & 0xff] ^ (u64)Te3[t0b & 0xff] ^ (u64)rk[41];
++            s2b = (u64)Te0[t2b >> 24] ^ (u64)Te1[(t3b >> 16) & 0xff] ^ (u64)Te2[(t0b >>  8) & 0xff] ^ (u64)Te3[t1b & 0xff] ^ (u64)rk[42];
++            s3b = (u64)Te0[t3b >> 24] ^ (u64)Te1[(t0b >> 16) & 0xff] ^ (u64)Te2[(t1b >>  8) & 0xff] ^ (u64)Te3[t2b & 0xff] ^ (u64)rk[43];
++
++            /* round 11: */
++            t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[44];
++            t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[45];
++            t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[46];
++            t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[47];
++
++            t0b = (u64)Te0[s0b >> 24] ^ (u64)Te1[(s1b >> 16) & 0xff] ^ (u64)Te2[(s2b >>  8) & 0xff] ^ (u64)Te3[s3b & 0xff] ^ (u64)rk[44];
++            t1b = (u64)Te0[s1b >> 24] ^ (u64)Te1[(s2b >> 16) & 0xff] ^ (u64)Te2[(s3b >>  8) & 0xff] ^ (u64)Te3[s0b & 0xff] ^ (u64)rk[45];
++            t2b = (u64)Te0[s2b >> 24] ^ (u64)Te1[(s3b >> 16) & 0xff] ^ (u64)Te2[(s0b >>  8) & 0xff] ^ (u64)Te3[s1b & 0xff] ^ (u64)rk[46];
++            t3b = (u64)Te0[s3b >> 24] ^ (u64)Te1[(s0b >> 16) & 0xff] ^ (u64)Te2[(s1b >>  8) & 0xff] ^ (u64)Te3[s2b & 0xff] ^ (u64)rk[47];
++
++            if (rounds > 12) {
++                /* round 12: */
++                s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[48];
++                s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[49];
++                s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[50];
++                s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[51];
++
++                s0b = (u64)Te0[t0b >> 24] ^ (u64)Te1[(t1b >> 16) & 0xff] ^ (u64)Te2[(t2b >>  8) & 0xff] ^ (u64)Te3[t3b & 0xff] ^ (u64)rk[48];
++                s1b = (u64)Te0[t1b >> 24] ^ (u64)Te1[(t2b >> 16) & 0xff] ^ (u64)Te2[(t3b >>  8) & 0xff] ^ (u64)Te3[t0b & 0xff] ^ (u64)rk[49];
++                s2b = (u64)Te0[t2b >> 24] ^ (u64)Te1[(t3b >> 16) & 0xff] ^ (u64)Te2[(t0b >>  8) & 0xff] ^ (u64)Te3[t1b & 0xff] ^ (u64)rk[50];
++                s3b = (u64)Te0[t3b >> 24] ^ (u64)Te1[(t0b >> 16) & 0xff] ^ (u64)Te2[(t1b >>  8) & 0xff] ^ (u64)Te3[t2b & 0xff] ^ (u64)rk[51];
++
++                /* round 13: */
++                t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[52];
++                t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[53];
++                t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[54];
++                t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[55];
++
++                t0b = (u64)Te0[s0b >> 24] ^ (u64)Te1[(s1b >> 16) & 0xff] ^ (u64)Te2[(s2b >>  8) & 0xff] ^ (u64)Te3[s3b & 0xff] ^ (u64)rk[52];
++                t1b = (u64)Te0[s1b >> 24] ^ (u64)Te1[(s2b >> 16) & 0xff] ^ (u64)Te2[(s3b >>  8) & 0xff] ^ (u64)Te3[s0b & 0xff] ^ (u64)rk[53];
++                t2b = (u64)Te0[s2b >> 24] ^ (u64)Te1[(s3b >> 16) & 0xff] ^ (u64)Te2[(s0b >>  8) & 0xff] ^ (u64)Te3[s1b & 0xff] ^ (u64)rk[54];
++                t3b = (u64)Te0[s3b >> 24] ^ (u64)Te1[(s0b >> 16) & 0xff] ^ (u64)Te2[(s1b >>  8) & 0xff] ^ (u64)Te3[s2b & 0xff] ^ (u64)rk[55];
++
++            }
++        }
++
++        /*
++         * apply last round and
++         * swap endian cipher sta(u64)Te before xor with input block:
++         */
++
++        s0a =
++            ( (u64)Te2[(t0a >> 24)       ] >> 24) ^
++            (((u64)Te3[(t1a >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t2a >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t3a      ) & 0xff] << 24) ^
++            last_key0;
++        s1a =
++            ( (u64)Te2[(t1a >> 24)       ] >> 24) ^
++            (((u64)Te3[(t2a >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t3a >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t0a      ) & 0xff] << 24) ^
++            last_key1;
++        s2a =
++            ( (u64)Te2[(t2a >> 24)       ] >> 24) ^
++            (((u64)Te3[(t3a >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t0a >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t1a      ) & 0xff] << 24) ^
++            last_key2;
++        s3a =
++            ( (u64)Te2[(t3a >> 24)       ] >> 24) ^
++            (((u64)Te3[(t0a >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t1a >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t2a      ) & 0xff] << 24) ^
++            last_key3;
++
++        s0b =
++            ( (u64)Te2[(t0b >> 24)       ] >> 24) ^
++            (((u64)Te3[(t1b >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t2b >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t3b      ) & 0xff] << 24) ^
++            last_key0;
++        s1b =
++            ( (u64)Te2[(t1b >> 24)       ] >> 24) ^
++            (((u64)Te3[(t2b >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t3b >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t0b      ) & 0xff] << 24) ^
++            last_key1;
++        s2b =
++            ( (u64)Te2[(t2b >> 24)       ] >> 24) ^
++            (((u64)Te3[(t3b >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t0b >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t1b      ) & 0xff] << 24) ^
++            last_key2;
++        s3b =
++            ( (u64)Te2[(t3b >> 24)       ] >> 24) ^
++            (((u64)Te3[(t0b >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t1b >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t2b      ) & 0xff] << 24) ^
++            last_key3;
++
++        output[0] = input[0] ^ s0a;
++        output[1] = input[1] ^ s1a;
++        output[2] = input[2] ^ s2a;
++        output[3] = input[3] ^ s3a;
++
++        output[4] = input[4] ^ s0b;
++        output[5] = input[5] ^ s1b;
++        output[6] = input[6] ^ s2b;
++        output[7] = input[7] ^ s3b;
++
++        input += 8;
++        output += 8;
++
++        ivec_w3a += 2;
++        ivec_w3b += 2;
++    }
++
++    if(blocks != 0)
++    {
++        s3a = ivec_w3a ^ (u64)rk[3];
++
++        /* round 1b: */
++        t0a = r1t0 ^ (u64)Te3[ s3a & 0xff];
++        t1a = r1t1 ^ (u64)Te2[(s3a >>  8) & 0xff];
++        t2a = r1t2 ^ (u64)Te1[(s3a >> 16) & 0xff];
++        t3a = r1t3 ^ (u64)Te0[ s3a >> 24];
++
++        /* round 2: */
++        s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[ 8];
++        s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[ 9];
++        s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[10];
++        s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[11];
++
++        /* round 3: */
++        t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[12];
++        t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[13];
++        t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[14];
++        t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[15];
++
++        /* round 4: */
++        s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[16];
++        s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[17];
++        s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[18];
++        s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[19];
++
++        /* round 5: */
++        t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[20];
++        t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[21];
++        t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[22];
++        t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[23];
++
++        /* round 6: */
++        s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[24];
++        s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[25];
++        s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[26];
++        s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[27];
++
++        /* round 7: */
++        t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[28];
++        t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[29];
++        t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[30];
++        t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[31];
++
++        /* round 8: */
++        s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[32];
++        s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[33];
++        s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[34];
++        s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[35];
++
++        /* round 9: */
++        t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[36];
++        t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[37];
++        t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[38];
++        t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[39];
++
++        if (rounds > 10) {
++            /* round 10: */
++            s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[40];
++            s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[41];
++            s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[42];
++            s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[43];
++
++            /* round 11: */
++            t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[44];
++            t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[45];
++            t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[46];
++            t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[47];
++
++            if (rounds > 12) {
++                /* round 12: */
++                s0a = (u64)Te0[t0a >> 24] ^ (u64)Te1[(t1a >> 16) & 0xff] ^ (u64)Te2[(t2a >>  8) & 0xff] ^ (u64)Te3[t3a & 0xff] ^ (u64)rk[48];
++                s1a = (u64)Te0[t1a >> 24] ^ (u64)Te1[(t2a >> 16) & 0xff] ^ (u64)Te2[(t3a >>  8) & 0xff] ^ (u64)Te3[t0a & 0xff] ^ (u64)rk[49];
++                s2a = (u64)Te0[t2a >> 24] ^ (u64)Te1[(t3a >> 16) & 0xff] ^ (u64)Te2[(t0a >>  8) & 0xff] ^ (u64)Te3[t1a & 0xff] ^ (u64)rk[50];
++                s3a = (u64)Te0[t3a >> 24] ^ (u64)Te1[(t0a >> 16) & 0xff] ^ (u64)Te2[(t1a >>  8) & 0xff] ^ (u64)Te3[t2a & 0xff] ^ (u64)rk[51];
++
++                /* round 13: */
++                t0a = (u64)Te0[s0a >> 24] ^ (u64)Te1[(s1a >> 16) & 0xff] ^ (u64)Te2[(s2a >>  8) & 0xff] ^ (u64)Te3[s3a & 0xff] ^ (u64)rk[52];
++                t1a = (u64)Te0[s1a >> 24] ^ (u64)Te1[(s2a >> 16) & 0xff] ^ (u64)Te2[(s3a >>  8) & 0xff] ^ (u64)Te3[s0a & 0xff] ^ (u64)rk[53];
++                t2a = (u64)Te0[s2a >> 24] ^ (u64)Te1[(s3a >> 16) & 0xff] ^ (u64)Te2[(s0a >>  8) & 0xff] ^ (u64)Te3[s1a & 0xff] ^ (u64)rk[54];
++                t3a = (u64)Te0[s3a >> 24] ^ (u64)Te1[(s0a >> 16) & 0xff] ^ (u64)Te2[(s1a >>  8) & 0xff] ^ (u64)Te3[s2a & 0xff] ^ (u64)rk[55];
++
++            }
++        }
++
++        /*
++         * apply last round and
++         * swap endian cipher sta(u64)Te before xor with input block:
++         */
++
++        s0a =
++            ( (u64)Te2[(t0a >> 24)       ] >> 24) ^
++            (((u64)Te3[(t1a >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t2a >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t3a      ) & 0xff] << 24) ^
++            last_key0;
++        s1a =
++            ( (u64)Te2[(t1a >> 24)       ] >> 24) ^
++            (((u64)Te3[(t2a >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t3a >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t0a      ) & 0xff] << 24) ^
++            last_key1;
++        s2a =
++            ( (u64)Te2[(t2a >> 24)       ] >> 24) ^
++            (((u64)Te3[(t3a >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t0a >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t1a      ) & 0xff] << 24) ^
++            last_key2;
++        s3a =
++            ( (u64)Te2[(t3a >> 24)       ] >> 24) ^
++            (((u64)Te3[(t0a >> 16) & 0xff] & 0x00ff0000) >>  8) ^
++            (((u64)Te0[(t1a >>  8) & 0xff] & 0x0000ff00) <<  8) ^
++            ( (u64)Te1[(t2a      ) & 0xff] << 24) ^
++            last_key3;
++
++        output[0] = input[0] ^ s0a;
++        output[1] = input[1] ^ s1a;
++        output[2] = input[2] ^ s2a;
++        output[3] = input[3] ^ s3a;
++
++        input += 4;
++        output += 4;
++
++        ivec_w3a++;
++    }
++
++}
++#endif
+diff --git a/crypto/evp/e_aes.c b/crypto/evp/e_aes.c
+index db5919a..82f4a6f 100644
+--- a/crypto/evp/e_aes.c
++++ b/crypto/evp/e_aes.c
+@@ -2516,13 +2516,25 @@ const EVP_CIPHER *EVP_aes_##keylen##_##mode(void)			\
+ 
+ #else
+ 
+-#if defined(__e2k__) && (__iset__ >= 7)
++# if defined(__e2k__) && (__iset__ >= 2)
++#   if __iset__ >= 7
+ 
+ void e2kv7_ctr32_encrypt_blocks(const unsigned char *in,
+                                 unsigned char *out,
+                                 size_t blocks,
+                                 const void *key, const unsigned char *ivec);
+-#endif
++#   define e2k_ctr32_encrypt_blocks e2kv7_ctr32_encrypt_blocks
++
++#   else
++
++void e2kv2_ctr32_encrypt_blocks_x2(const unsigned char *in,
++                                   unsigned char *out,
++                                   size_t blocks,
++                                   const void *key, const unsigned char *ivec);
++#   define e2k_ctr32_encrypt_blocks e2kv2_ctr32_encrypt_blocks_x2
++
++#   endif
++# endif
+ 
+ 
+ # define BLOCK_CIPHER_generic(nid,keylen,blocksize,ivlen,nmode,mode,MODE,flags) \
+@@ -2679,6 +2691,14 @@ static int aes_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
+         dat->stream.ctr = (ctr128_f) e2kv7_ctr32_encrypt_blocks;
+     } else
+ #endif
++#if defined(__e2k__) && (__iset__ >= 2)
++    if (mode == EVP_CIPH_CTR_MODE) {
++        ret = AES_set_encrypt_key(key, EVP_CIPHER_CTX_key_length(ctx) * 8,
++                                  &dat->ks.ks);
++        dat->block = (block128_f) AES_encrypt;
++        dat->stream.ctr = (ctr128_f) e2k_ctr32_encrypt_blocks;
++    } else
++#endif
+ #ifdef BSAES_CAPABLE
+     if (BSAES_CAPABLE && mode == EVP_CIPH_CTR_MODE) {
+         ret = AES_set_encrypt_key(key, EVP_CIPHER_CTX_key_length(ctx) * 8,
+@@ -3030,6 +3050,15 @@ static int aes_gcm_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
+                 break;
+             } else
+ #endif
++#if defined(__e2k__) && (__iset__ >= 2)
++            if (1) {
++                AES_set_encrypt_key(key, ctx->key_len * 8, &gctx->ks.ks);
++                CRYPTO_gcm128_init(&gctx->gcm, &gctx->ks,
++                                   (block128_f) AES_encrypt);
++                gctx->ctr = (ctr128_f) e2k_ctr32_encrypt_blocks;
++                break;
++            } else
++#endif
+ #ifdef BSAES_CAPABLE
+             if (BSAES_CAPABLE) {
+                 AES_set_encrypt_key(key, ctx->key_len * 8, &gctx->ks.ks);

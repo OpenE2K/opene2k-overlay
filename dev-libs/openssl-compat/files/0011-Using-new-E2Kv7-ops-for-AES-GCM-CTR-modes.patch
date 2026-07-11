@@ -1,0 +1,248 @@
+Subject: Using new E2Kv7 operations for AES GCM/CTR modes
+From: Alexander Troosh <trush@yandex.ru>
+
+
+1) Test of raw speed of GCM and CTR modes (this is 12.5 MHz e8v7 proto):
+
+for m in  aes-128-gcm aes-256-gcm aes-192-gcm \
+          aes-128-ctr aes-256-ctr aes-192-ctr
+do
+  openssl speed -evp $m 2>/dev/null | tail -1
+done
+
+type             16 bytes     64 bytes    256 bytes   1024 bytes   8192 bytes  16384 bytes
+aes-128-gcm        462.85k      941.65k     1385.81k     1584.81k     1613.82k     1611.09k
+aes-256-gcm        446.01k      884.05k     1256.28k     1407.66k     1436.33k     1436.33k
+aes-192-gcm        447.47k      886.57k     1263.62k     1420.63k     1458.18k     1458.18k
+aes-128-ctr        462.78k      851.46k     1103.62k     1189.55k     1220.61k     1223.34k
+aes-256-ctr        434.31k      762.26k      954.79k     1011.71k     1032.19k     1037.65k
+aes-192-ctr        447.77k      804.35k     1024.09k     1098.07k     1122.30k     1125.03k
+=>
+type             16 bytes     64 bytes    256 bytes   1024 bytes   8192 bytes  16384 bytes
+aes-128-gcm        484.70k     1315.01k     3559.94k     6084.61k     7533.91k     7602.18k
+aes-256-gcm        457.18k     1206.49k     3162.88k     5284.86k     6367.91k     6466.22k
+aes-192-gcm        475.81k     1258.35k     3363.07k     5756.25k     6993.24k     7061.50k
+aes-128-ctr        533.71k     1645.65k     5440.62k    11274.58k    17926.83k    18661.38k
+aes-256-ctr        505.78k     1503.79k     4562.01k     9028.95k    13129.05k    13533.18k
+aes-192-ctr        524.25k     1577.56k     4906.41k    10267.99k    15776.66k    15821.48k
+
+
+2) Speed of security channel (with openssh-9.1p1):
+
+  for i in `ssh -Q cipher`
+  do
+    dd if=/dev/zero bs=1M count=100 2> /dev/null \
+    | /usr/bin/ssh -c $i root@localhost "(/usr/bin/time -p cat) > /dev/null" 2>&1 \
+    | grep real | tr , . | awk '{print "'$i': "100 / $2" MB/s" }'
+  done
+
+aes128-ctr: 0.411336 MB/s
+aes192-ctr: 0.394867 MB/s
+aes256-ctr: 0.366408 MB/s
+aes128-gcm@openssh.com: 0.303058 MB/s
+aes256-gcm@openssh.com: 0.293427 MB/s
+=>
+aes128-ctr: 0.959785 MB/s
+aes192-ctr: 0.887863 MB/s
+aes256-ctr: 0.925412 MB/s
+aes128-gcm@openssh.com: 1.34391 MB/s
+aes256-gcm@openssh.com: 1.32714 MB/s
+
+
+diff --git a/crypto/evp/e_aes.c b/crypto/evp/e_aes.c
+index a1d3ab9..db5919a 100644
+--- a/crypto/evp/e_aes.c
++++ b/crypto/evp/e_aes.c
+@@ -2516,6 +2516,15 @@ const EVP_CIPHER *EVP_aes_##keylen##_##mode(void)			\
+ 
+ #else
+ 
++#if defined(__e2k__) && (__iset__ >= 7)
++
++void e2kv7_ctr32_encrypt_blocks(const unsigned char *in,
++                                unsigned char *out,
++                                size_t blocks,
++                                const void *key, const unsigned char *ivec);
++#endif
++
++
+ # define BLOCK_CIPHER_generic(nid,keylen,blocksize,ivlen,nmode,mode,MODE,flags) \
+ static const EVP_CIPHER aes_##keylen##_##mode = { \
+         nid##_##keylen##_##nmode,blocksize,keylen/8,ivlen, \
+@@ -2662,6 +2671,14 @@ static int aes_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
+             (void)0;            /* terminate potentially open 'else' */
+     } else
+ #endif
++#if defined(__e2k__) && (__iset__ >= 7)
++    if (mode == EVP_CIPH_CTR_MODE) {
++        ret = AES_set_encrypt_key(key, EVP_CIPHER_CTX_key_length(ctx) * 8,
++                                  &dat->ks.ks);
++        dat->block = (block128_f) AES_encrypt;
++        dat->stream.ctr = (ctr128_f) e2kv7_ctr32_encrypt_blocks;
++    } else
++#endif
+ #ifdef BSAES_CAPABLE
+     if (BSAES_CAPABLE && mode == EVP_CIPH_CTR_MODE) {
+         ret = AES_set_encrypt_key(key, EVP_CIPHER_CTX_key_length(ctx) * 8,
+@@ -3004,6 +3021,15 @@ static int aes_gcm_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
+                 break;
+             } else
+ #endif
++#if defined(__e2k__) && (__iset__ >= 7)
++            if (1) {
++                AES_set_encrypt_key(key, ctx->key_len * 8, &gctx->ks.ks);
++                CRYPTO_gcm128_init(&gctx->gcm, &gctx->ks,
++                                   (block128_f) AES_encrypt);
++                gctx->ctr = (ctr128_f) e2kv7_ctr32_encrypt_blocks;
++                break;
++            } else
++#endif
+ #ifdef BSAES_CAPABLE
+             if (BSAES_CAPABLE) {
+                 AES_set_encrypt_key(key, ctx->key_len * 8, &gctx->ks.ks);
+diff --git a/crypto/modes/gcm128.c b/crypto/modes/gcm128.c
+index dca1240..fb70d88 100644
+--- a/crypto/modes/gcm128.c
++++ b/crypto/modes/gcm128.c
+@@ -11,12 +11,14 @@
+ #include "modes_local.h"
+ #include <string.h>
+ 
+-#if (defined(__e2k__) && __iset__ >= 6)
++#if defined(__e2k__) && (__iset__ >= 6)
+ #define GHASH_ASM    /* Disable generic code */
+ 
+ #include <stdint.h>
+ #include <e2kintrin.h>
+ 
++#include <openssl/aes.h>
++
+ static __attribute__ ((__always_inline__)) inline
+ __v2di reverse_vector(const __v2di in)
+ {
+@@ -205,6 +207,125 @@ void gcm_ghash_clmul_e2kv6(u64 Xi[2], const u128 Htable[16],
+ 
+     *(__v2di *)Xi = reverse_vector(x);
+ }
++
++#if defined(__e2k__) && (__iset__ >= 7)
++
++static __attribute__ ((__always_inline__)) inline
++__v2di aes_encrypt_e2kv7(const __v2di p, const __v2di enc_key[], const int rounds)
++{
++    __v2di x = p;
++    __v2di z = {0LL, 0LL};
++    __v2di prev_key, last_key;
++
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[0], z), z, z);
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[1], z), z, z);
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[2], z), z, z);
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[3], z), z, z);
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[4], z), z, z);
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[5], z), z, z);
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[6], z), z, z);
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[7], z), z, z);
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[8], z), z, z);
++
++    prev_key = enc_key[9];
++    last_key = enc_key[10];
++    if (rounds >= 12) {
++        x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[9], z), z, z);
++        x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[10], z), z, z);
++        prev_key = enc_key[11];
++        last_key = enc_key[12];
++        if (rounds == 14) {
++            x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[11], z), z, z);
++            x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[12], z), z, z);
++            prev_key = enc_key[13];
++            last_key = enc_key[14];
++        }
++    }
++
++    x = __builtin_e2k_qpaesebgn(x, prev_key, z);
++    return __builtin_e2k_qpxor(x, last_key);
++}
++
++
++static __attribute__ ((__always_inline__)) inline
++__v2di incr(__v2di x)
++{
++    __v2di fmt = __builtin_e2k_qppackdl(0x0001020304050607LL, 0x08090a0b0c0d0e0fLL);
++    x = __builtin_e2k_qppermb(x, x, fmt);
++    x = __builtin_e2k_qpaddd(x, (__v2di){1LL, 0LL});
++    return __builtin_e2k_qppermb(x, x, fmt);
++}
++
++static __attribute__ ((__always_inline__)) inline
++__v2di add4(__v2di x)
++{
++    __v2di fmt = __builtin_e2k_qppackdl(0x0001020304050607LL, 0x08090a0b0c0d0e0fLL);
++    x = __builtin_e2k_qppermb(x, x, fmt);
++    x = __builtin_e2k_qpaddd(x, (__v2di){4LL, 0LL});
++    return __builtin_e2k_qppermb(x, x, fmt);
++}
++
++/** Handles only complete blocks, operates on 32-bit counter and
++ *  does not update *ivec! (see crypto/modes/ctr128.c for details)
++ */
++void e2kv7_ctr32_encrypt_blocks(const void *in, void *out,
++                                size_t blocks, const AES_KEY *aes_key,
++                                const char *ivec)
++{
++    __v2di y0 = *(__v2di *)ivec;
++    __v2di y1 = incr(y0);
++    __v2di y2 = incr(y1);
++    __v2di y3 = incr(y2);
++
++    __v2di * __restrict__ input = (__v2di *)in;
++    __v2di * __restrict__ output = (__v2di *)out;
++
++    __v2di * __restrict__ rd_key = (__v2di *)aes_key->rd_key;
++    const int rounds = aes_key->rounds;
++    int i;
++
++#pragma unroll(1)
++#pragma loop count(1000)
++    while(blocks >= 4)
++    {
++        __v2di m0 = input[0];
++        __v2di m1 = input[1];
++        __v2di m2 = input[2];
++        __v2di m3 = input[3];
++
++        m0 ^= aes_encrypt_e2kv7(y0, rd_key, rounds);
++        m1 ^= aes_encrypt_e2kv7(y1, rd_key, rounds);
++        m2 ^= aes_encrypt_e2kv7(y2, rd_key, rounds);
++        m3 ^= aes_encrypt_e2kv7(y3, rd_key, rounds);
++
++        output[0] = m0;
++        output[1] = m1;
++        output[2] = m2;
++        output[3] = m3;
++
++        y0 = add4(y0);
++        y1 = add4(y1);
++        y2 = add4(y2);
++        y3 = add4(y3);
++
++        input += 4;
++        output += 4;
++        blocks -= 4;
++    }
++
++#pragma loop count(3)
++    for(i=0; i < blocks; i++)
++    {
++        __v2di m = input[i];
++
++        m ^= aes_encrypt_e2kv7(y0, rd_key, rounds);
++        output[i] = m;
++
++        y0 = incr(y0);
++    }
++}
++
++#endif /* For E2Kv7+ only */
+ #endif /* For E2Kv6+ only */
+ 
+ 

@@ -1,0 +1,57 @@
+Subject: Hints for lcc to speed up the RC4 cipher (Enabled for E2Kv6+ only).
+From: Alexander Troosh <trush@yandex.ru>
+
+Benchmark by "openssl speed rc4":
+
+                            16 bytes     64 bytes    256 bytes   1024 bytes   8192 bytes  16384 bytes
+e1c+@984MHz,  lcc-1.26.18:  35145.91k    45637.67k    49494.82k    50366.46k    50845.20k    50872.59k
+e8c2@1500MHz, lcc-1.26.17:  51109.17k    67782.23k    74006.02k    75693.40k    76193.79k    76229.29k
+e2c3@2000MHz, lcc-1.26.17: 100330.81k   118400.11k   123649.37k   125035.52k   125444.10k   125468.67k
+
+e8v7@12.5MHz, lcc-1.28.08:    614.42k      678.63k      696.06k      701.44k      704.51k      704.51k
+
+
+=>
+e1c+@984MHz,  lcc-1.26.18:  34160.86k    45705.57k    49695.85k    50696.87k    51223.29k    51079.85k   1.003
+e1c+@984MHz,  lcc-1.26.20:  34162.70k    45644.59k    50182.42k    51202.73k    51743.85k    51587.75k   1.014
+
+e8c2@1500MHz, lcc-1.26.17:  47708.93k    63484.50k    69336.23k    70951.94k    71439.70k    71477.93k   0.938 ???
+e8c2@1500MHz, lcc-1.26.20:  47548.34k    63462.17k    69241.69k    70853.97k    71338.67k    71374.17k   0.936
+
+e2c3@2000MHz, lcc-1.26.17: 105393.86k   126412.42k   132735.66k   134038.53k   134924.97k   135357.05k   1.079
+e2c3@2000MHz, lcc-1.26.20: 105551.43k   126749.37k   132684.63k   134395.22k   135241.97k   134905.86k   1.075
+
+e8v7@12.5MHz, lcc-1.28.08:    672.98k      831.09k      901.45k      746.42k      911.81k      911.81k   1.294
+
+
+diff --git a/crypto/rc4/rc4_enc.c b/crypto/rc4/rc4_enc.c
+index 09ef6a8..974d821 100644
+--- a/crypto/rc4/rc4_enc.c
++++ b/crypto/rc4/rc4_enc.c
+@@ -19,9 +19,15 @@
+  */
+ 
+ void RC4(RC4_KEY *key, size_t len, const unsigned char *indata,
+-         unsigned char *outdata)
++         unsigned char *out)
+ {
++#if defined(__e2k__) && __iset__ >= 6
++    register RC4_INT * __restrict__ d;
++    unsigned char * __restrict__ outdata = out;
++#else
+     register RC4_INT *d;
++    unsigned char *outdata = out;
++#endif
+     register RC4_INT x, y, tx, ty;
+     size_t i;
+ 
+@@ -76,8 +82,7 @@ void RC4(RC4_KEY *key, size_t len, const unsigned char *indata,
+             if (--i == 0)
+                 break;
+             LOOP(indata[6], outdata[6]);
+-            if (--i == 0)
+-                break;
++            break;
+         }
+     }
+     key->x = x;

@@ -1,0 +1,313 @@
+Optimization of sha256 and sha512
+
+diff -ruN openssl-1.1.1n/crypto/sha/sha256.c openssl-1.1.1n-patch/crypto/sha/sha256.c
+--- openssl-1.1.1n/crypto/sha/sha256.c	2022-03-15 17:37:47.000000000 +0300
++++ openssl-1.1.1n-patch/crypto/sha/sha256.c	2022-04-26 15:47:33.522562358 +0300
+@@ -156,12 +156,20 @@
+  * differ from those observed in FIPS document by 32-N...
+  */
+ # define Sigma0(x)       (ROTATE((x),30) ^ ROTATE((x),19) ^ ROTATE((x),10))
++#ifdef __e2k__
++ #define Sigma1(x)       (ROTATE(ROTATE((x),26-21) ^ (x),21) ^ ROTATE((x),7))
++#else
+ # define Sigma1(x)       (ROTATE((x),26) ^ ROTATE((x),21) ^ ROTATE((x),7))
++#endif
+ # define sigma0(x)       (ROTATE((x),25) ^ ROTATE((x),14) ^ ((x)>>3))
+ # define sigma1(x)       (ROTATE((x),15) ^ ROTATE((x),13) ^ ((x)>>10))
+ 
+ # define Ch(x,y,z)       (((x) & (y)) ^ ((~(x)) & (z)))
++#ifdef __e2k__
++ #define Maj(x,y,z)      (((y) & (z)) ^ ((x) & ((y) ^ (z))))
++#else
+ # define Maj(x,y,z)      (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
++#endif
+ 
+ # ifdef OPENSSL_SMALL_FOOTPRINT
+ 
+@@ -243,6 +251,22 @@
+         T1 = X[(i)&0x0f] += s0 + s1 + X[(i+9)&0x0f];    \
+         ROUND_00_15(i,a,b,c,d,e,f,g,h);         } while (0)
+ 
++#if defined(__e2k__) && __iset__ >= 3
++#define ROUND_16_63_REUSE(i,a,b,c,d,e,f,g,h,X)              \
++    s0 = X[(i+1)&0x0f];     s0 = sigma0(s0);                \
++    s1 = X[(i+14)&0x0f];    s1 = sigma1(s1);                \
++    T1 = X[(i)&0x0f] += s0 + s1 + X[(i+9)&0x0f];            \
++                                                            \
++    y = z;                                                  \
++    z = (a) & (b);                                          \
++                                                            \
++    do {                                                    \
++    T1 += h + Sigma1(e) + Ch(e,f,g) + K256[i];              \
++    h = Sigma0(a) + ((z) ^ ((a) & (c)) ^ (y));              \
++    d += T1;    h += T1;                                    \
++    } while(0)
++#endif
++
+ static void sha256_block_data_order(SHA256_CTX *ctx, const void *in,
+                                     size_t num)
+ {
+@@ -257,6 +281,9 @@
+         1
+     };
+ 
++#ifdef __e2k__
++#pragma loop count(1000)
++#endif
+     while (num--) {
+ 
+         a = ctx->h[0];
+@@ -359,6 +386,63 @@
+             ROUND_00_15(15, b, c, d, e, f, g, h, a);
+         }
+ 
++#ifdef __e2k__
++    SHA_LONG z = c & b, y;
++
++    ROUND_16_63_REUSE(16,a,b,c,d,e,f,g,h,X);
++    ROUND_16_63_REUSE(17,h,a,b,c,d,e,f,g,X);
++    ROUND_16_63_REUSE(18,g,h,a,b,c,d,e,f,X);
++    ROUND_16_63_REUSE(19,f,g,h,a,b,c,d,e,X);
++    ROUND_16_63_REUSE(20,e,f,g,h,a,b,c,d,X);
++    ROUND_16_63_REUSE(21,d,e,f,g,h,a,b,c,X);
++    ROUND_16_63_REUSE(22,c,d,e,f,g,h,a,b,X);
++    ROUND_16_63_REUSE(23,b,c,d,e,f,g,h,a,X);
++
++    ROUND_16_63_REUSE(24,a,b,c,d,e,f,g,h,X);
++    ROUND_16_63_REUSE(25,h,a,b,c,d,e,f,g,X);
++    ROUND_16_63_REUSE(26,g,h,a,b,c,d,e,f,X);
++    ROUND_16_63_REUSE(27,f,g,h,a,b,c,d,e,X);
++    ROUND_16_63_REUSE(28,e,f,g,h,a,b,c,d,X);
++    ROUND_16_63_REUSE(29,d,e,f,g,h,a,b,c,X);
++    ROUND_16_63_REUSE(30,c,d,e,f,g,h,a,b,X);
++    ROUND_16_63_REUSE(31,b,c,d,e,f,g,h,a,X);
++
++    ROUND_16_63_REUSE(32,a,b,c,d,e,f,g,h,X);
++    ROUND_16_63_REUSE(33,h,a,b,c,d,e,f,g,X);
++    ROUND_16_63_REUSE(34,g,h,a,b,c,d,e,f,X);
++    ROUND_16_63_REUSE(35,f,g,h,a,b,c,d,e,X);
++    ROUND_16_63_REUSE(36,e,f,g,h,a,b,c,d,X);
++    ROUND_16_63_REUSE(37,d,e,f,g,h,a,b,c,X);
++    ROUND_16_63_REUSE(38,c,d,e,f,g,h,a,b,X);
++    ROUND_16_63_REUSE(39,b,c,d,e,f,g,h,a,X);
++
++    ROUND_16_63_REUSE(40,a,b,c,d,e,f,g,h,X);
++    ROUND_16_63_REUSE(41,h,a,b,c,d,e,f,g,X);
++    ROUND_16_63_REUSE(42,g,h,a,b,c,d,e,f,X);
++    ROUND_16_63_REUSE(43,f,g,h,a,b,c,d,e,X);
++    ROUND_16_63_REUSE(44,e,f,g,h,a,b,c,d,X);
++    ROUND_16_63_REUSE(45,d,e,f,g,h,a,b,c,X);
++    ROUND_16_63_REUSE(46,c,d,e,f,g,h,a,b,X);
++    ROUND_16_63_REUSE(47,b,c,d,e,f,g,h,a,X);
++
++    ROUND_16_63_REUSE(48,a,b,c,d,e,f,g,h,X);
++    ROUND_16_63_REUSE(49,h,a,b,c,d,e,f,g,X);
++    ROUND_16_63_REUSE(50,g,h,a,b,c,d,e,f,X);
++    ROUND_16_63_REUSE(51,f,g,h,a,b,c,d,e,X);
++    ROUND_16_63_REUSE(52,e,f,g,h,a,b,c,d,X);
++    ROUND_16_63_REUSE(53,d,e,f,g,h,a,b,c,X);
++    ROUND_16_63_REUSE(54,c,d,e,f,g,h,a,b,X);
++    ROUND_16_63_REUSE(55,b,c,d,e,f,g,h,a,X);
++
++    ROUND_16_63_REUSE(56,a,b,c,d,e,f,g,h,X);
++    ROUND_16_63_REUSE(57,h,a,b,c,d,e,f,g,X);
++    ROUND_16_63_REUSE(58,g,h,a,b,c,d,e,f,X);
++    ROUND_16_63_REUSE(59,f,g,h,a,b,c,d,e,X);
++    ROUND_16_63_REUSE(60,e,f,g,h,a,b,c,d,X);
++    ROUND_16_63_REUSE(61,d,e,f,g,h,a,b,c,X);
++    ROUND_16_63_REUSE(62,c,d,e,f,g,h,a,b,X);
++    ROUND_16_63_REUSE(63,b,c,d,e,f,g,h,a,X);
++#else
+         for (i = 16; i < 64; i += 8) {
+             ROUND_16_63(i + 0, a, b, c, d, e, f, g, h, X);
+             ROUND_16_63(i + 1, h, a, b, c, d, e, f, g, X);
+@@ -369,7 +453,7 @@
+             ROUND_16_63(i + 6, c, d, e, f, g, h, a, b, X);
+             ROUND_16_63(i + 7, b, c, d, e, f, g, h, a, X);
+         }
+-
++#endif
+         ctx->h[0] += a;
+         ctx->h[1] += b;
+         ctx->h[2] += c;
+diff -ruN openssl-1.1.1n/crypto/sha/sha512.c openssl-1.1.1n-patch/crypto/sha/sha512.c
+--- openssl-1.1.1n/crypto/sha/sha512.c	2022-03-15 17:37:47.000000000 +0300
++++ openssl-1.1.1n-patch/crypto/sha/sha512.c	2022-04-26 15:47:33.526562439 +0300
+@@ -52,10 +52,14 @@
+ #include "internal/cryptlib.h"
+ #include "crypto/sha.h"
+ 
++#ifdef __e2k__
++#include <x86intrin.h>
++#endif
++
+ #if defined(__i386) || defined(__i386__) || defined(_M_IX86) || \
+     defined(__x86_64) || defined(_M_AMD64) || defined(_M_X64) || \
+     defined(__s390__) || defined(__s390x__) || \
+-    defined(__aarch64__) || \
++    defined(__aarch64__) || defined(__e2k__) || \
+     defined(SHA512_ASM)
+ # define SHA512_BLOCK_CAN_MANAGE_UNALIGNED_DATA
+ #endif
+@@ -478,6 +482,13 @@
+ #   endif
+ #  endif
+ # endif
++
++#ifdef __e2k__
++#     define PULL64(x) __builtin_bswap64(x)
++#     define ROTR(x,s)  ( ((s)>48)? __rolq((x), 64 - (s)) \
++                                  : __rorq((x),      (s)) )
++#endif
++
+ # ifndef PULL64
+ #  define B(x,j)    (((SHA_LONG64)(*(((const unsigned char *)(&x))+j)))<<((7-j)*8))
+ #  define PULL64(x) (B(x,0)|B(x,1)|B(x,2)|B(x,3)|B(x,4)|B(x,5)|B(x,6)|B(x,7))
+@@ -485,12 +496,28 @@
+ # ifndef ROTR
+ #  define ROTR(x,s)       (((x)>>s) | (x)<<(64-s))
+ # endif
++
++#ifdef __e2k__
++# define Sigma0(x)       (ROTR((x) ^ ROTR((x),6) ^ ROTR((x),11), 28))
++#else
+ # define Sigma0(x)       (ROTR((x),28) ^ ROTR((x),34) ^ ROTR((x),39))
++#endif
+ # define Sigma1(x)       (ROTR((x),14) ^ ROTR((x),18) ^ ROTR((x),41))
++
++#if defined(__e2k__) && __iset__ >= 5
++ #define sigma0(x)  (__builtin_e2k_plog (0x96, ROTR((x),1),  ROTR((x),8),  ((x)>>7)))
++ #define sigma1(x)  (__builtin_e2k_plog (0x96, ROTR((x),19), ROTR((x),61), ((x)>>6)))
++#else
+ # define sigma0(x)       (ROTR((x),1)  ^ ROTR((x),8)  ^ ((x)>>7))
+ # define sigma1(x)       (ROTR((x),19) ^ ROTR((x),61) ^ ((x)>>6))
++#endif
++
+ # define Ch(x,y,z)       (((x) & (y)) ^ ((~(x)) & (z)))
++#ifdef __e2k__
++# define Maj(x,y,z)      (((y) & (z)) ^ ((x) & ((y) ^ (z))))
++#else
+ # define Maj(x,y,z)      (((x) & (y)) ^ ((x) & (z)) ^ ((y) & (z)))
++#endif
+ 
+ # if defined(__i386) || defined(__i386__) || defined(_M_IX86)
+ /*
+@@ -649,6 +676,9 @@
+     SHA_LONG64 X[16];
+     int i;
+ 
++#ifdef __e2k__
++#pragma loop count(1000)
++#endif
+     while (num--) {
+ 
+         a = ctx->h[0];
+@@ -728,6 +758,72 @@
+         ROUND_00_15(15, b, c, d, e, f, g, h, a);
+ #  endif
+ 
++#ifdef __e2k__
++	ROUND_16_80(16, 0,a,b,c,d,e,f,g,h,X);
++	ROUND_16_80(16, 1,h,a,b,c,d,e,f,g,X);
++	ROUND_16_80(16, 2,g,h,a,b,c,d,e,f,X);
++	ROUND_16_80(16, 3,f,g,h,a,b,c,d,e,X);
++	ROUND_16_80(16, 4,e,f,g,h,a,b,c,d,X);
++	ROUND_16_80(16, 5,d,e,f,g,h,a,b,c,X);
++	ROUND_16_80(16, 6,c,d,e,f,g,h,a,b,X);
++	ROUND_16_80(16, 7,b,c,d,e,f,g,h,a,X);
++	ROUND_16_80(16, 8,a,b,c,d,e,f,g,h,X);
++	ROUND_16_80(16, 9,h,a,b,c,d,e,f,g,X);
++	ROUND_16_80(16,10,g,h,a,b,c,d,e,f,X);
++	ROUND_16_80(16,11,f,g,h,a,b,c,d,e,X);
++	ROUND_16_80(16,12,e,f,g,h,a,b,c,d,X);
++	ROUND_16_80(16,13,d,e,f,g,h,a,b,c,X);
++	ROUND_16_80(16,14,c,d,e,f,g,h,a,b,X);
++	ROUND_16_80(16,15,b,c,d,e,f,g,h,a,X);
++	ROUND_16_80(32, 0,a,b,c,d,e,f,g,h,X);
++	ROUND_16_80(32, 1,h,a,b,c,d,e,f,g,X);
++	ROUND_16_80(32, 2,g,h,a,b,c,d,e,f,X);
++	ROUND_16_80(32, 3,f,g,h,a,b,c,d,e,X);
++	ROUND_16_80(32, 4,e,f,g,h,a,b,c,d,X);
++	ROUND_16_80(32, 5,d,e,f,g,h,a,b,c,X);
++	ROUND_16_80(32, 6,c,d,e,f,g,h,a,b,X);
++	ROUND_16_80(32, 7,b,c,d,e,f,g,h,a,X);
++	ROUND_16_80(32, 8,a,b,c,d,e,f,g,h,X);
++	ROUND_16_80(32, 9,h,a,b,c,d,e,f,g,X);
++	ROUND_16_80(32,10,g,h,a,b,c,d,e,f,X);
++	ROUND_16_80(32,11,f,g,h,a,b,c,d,e,X);
++	ROUND_16_80(32,12,e,f,g,h,a,b,c,d,X);
++	ROUND_16_80(32,13,d,e,f,g,h,a,b,c,X);
++	ROUND_16_80(32,14,c,d,e,f,g,h,a,b,X);
++	ROUND_16_80(32,15,b,c,d,e,f,g,h,a,X);
++	ROUND_16_80(48, 0,a,b,c,d,e,f,g,h,X);
++	ROUND_16_80(48, 1,h,a,b,c,d,e,f,g,X);
++	ROUND_16_80(48, 2,g,h,a,b,c,d,e,f,X);
++	ROUND_16_80(48, 3,f,g,h,a,b,c,d,e,X);
++	ROUND_16_80(48, 4,e,f,g,h,a,b,c,d,X);
++	ROUND_16_80(48, 5,d,e,f,g,h,a,b,c,X);
++	ROUND_16_80(48, 6,c,d,e,f,g,h,a,b,X);
++	ROUND_16_80(48, 7,b,c,d,e,f,g,h,a,X);
++	ROUND_16_80(48, 8,a,b,c,d,e,f,g,h,X);
++	ROUND_16_80(48, 9,h,a,b,c,d,e,f,g,X);
++	ROUND_16_80(48,10,g,h,a,b,c,d,e,f,X);
++	ROUND_16_80(48,11,f,g,h,a,b,c,d,e,X);
++	ROUND_16_80(48,12,e,f,g,h,a,b,c,d,X);
++	ROUND_16_80(48,13,d,e,f,g,h,a,b,c,X);
++	ROUND_16_80(48,14,c,d,e,f,g,h,a,b,X);
++	ROUND_16_80(48,15,b,c,d,e,f,g,h,a,X);
++	ROUND_16_80(64, 0,a,b,c,d,e,f,g,h,X);
++	ROUND_16_80(64, 1,h,a,b,c,d,e,f,g,X);
++	ROUND_16_80(64, 2,g,h,a,b,c,d,e,f,X);
++	ROUND_16_80(64, 3,f,g,h,a,b,c,d,e,X);
++	ROUND_16_80(64, 4,e,f,g,h,a,b,c,d,X);
++	ROUND_16_80(64, 5,d,e,f,g,h,a,b,c,X);
++	ROUND_16_80(64, 6,c,d,e,f,g,h,a,b,X);
++	ROUND_16_80(64, 7,b,c,d,e,f,g,h,a,X);
++	ROUND_16_80(64, 8,a,b,c,d,e,f,g,h,X);
++	ROUND_16_80(64, 9,h,a,b,c,d,e,f,g,X);
++	ROUND_16_80(64,10,g,h,a,b,c,d,e,f,X);
++	ROUND_16_80(64,11,f,g,h,a,b,c,d,e,X);
++	ROUND_16_80(64,12,e,f,g,h,a,b,c,d,X);
++	ROUND_16_80(64,13,d,e,f,g,h,a,b,c,X);
++	ROUND_16_80(64,14,c,d,e,f,g,h,a,b,X);
++	ROUND_16_80(64,15,b,c,d,e,f,g,h,a,X);
++#else
+         for (i = 16; i < 80; i += 16) {
+             ROUND_16_80(i, 0, a, b, c, d, e, f, g, h, X);
+             ROUND_16_80(i, 1, h, a, b, c, d, e, f, g, X);
+@@ -746,6 +842,7 @@
+             ROUND_16_80(i, 14, c, d, e, f, g, h, a, b, X);
+             ROUND_16_80(i, 15, b, c, d, e, f, g, h, a, X);
+         }
++#endif
+ 
+         ctx->h[0] += a;
+         ctx->h[1] += b;
+diff -ruN openssl-1.1.1n/include/crypto/md32_common.h openssl-1.1.1n-patch/include/crypto/md32_common.h
+--- openssl-1.1.1n/include/crypto/md32_common.h	2022-03-15 17:37:47.000000000 +0300
++++ openssl-1.1.1n-patch/include/crypto/md32_common.h	2022-04-26 15:47:33.526562439 +0300
+@@ -65,6 +65,10 @@
+ 
+ #include <openssl/crypto.h>
+ 
++#if defined(__e2k__)
++#include <e2kintrin.h>
++#endif
++
+ #if !defined(DATA_ORDER_IS_BIG_ENDIAN) && !defined(DATA_ORDER_IS_LITTLE_ENDIAN)
+ # error "DATA_ORDER must be defined!"
+ #endif
+@@ -93,7 +97,13 @@
+ # error "HASH_BLOCK_DATA_ORDER must be defined!"
+ #endif
+ 
++#if defined(__e2k__)
++#define ROTATE(a,n)     ( (__builtin_constant_p(n) && (n) > 16) \
++                          ? __builtin_e2k_scrs((a), 32 - (n))   \
++                          : __builtin_e2k_scls((a),      (n)) )
++#else
+ #define ROTATE(a,n)     (((a)<<(n))|(((a)&0xffffffff)>>(32-(n))))
++#endif
+ 
+ #if defined(DATA_ORDER_IS_BIG_ENDIAN)
+ 

@@ -1,0 +1,31 @@
+Optimization of ECDH and ECDSA (nistp/nistb)
+
+                                sign/s                   verify/s
+ 192 bits ecdsa (nistp192)      372.1 -> 417.1  112%    483.4 -> 543.8  112%
+ 224 bits ecdsa (nistp224)      312.3 -> 311.2  100%    426.8 -> 416.9   98%
+ 256 bits ecdsa (nistp256)      233.1 -> 317.9  136%    326.1 -> 424.8  130%
+ 384 bits ecdsa (nistp384)      121.2 -> 163.5  135%    174.6 -> 222.7  128%
+ 521 bits ecdsa (nistp521)       99.1 ->  99.6  101%    136.3 -> 135.0   99%
+
+ 283 bits ecdsa (nistb283)      301.0 -> 371.2  123%    154.3 -> 191.9  124%
+
+                                        op/s
+ 192 bits ecdh (nistp192)               392.5 -> 443.8  113%
+ 224 bits ecdh (nistp224)               324.7 -> 325.9  100%
+ 256 bits ecdh (nistp256)               242.5 -> 338.2  139%
+ 384 bits ecdh (nistp384)               127.4 -> 176.8  139%
+ 521 bits ecdh (nistp521)               106.7 -> 107.4  101%
+
+ 571 bits ecdh (nistb571)               93.6 -> 122.0   130%
+
+diff -ruN openssl-1.1.1n/Configurations/10-main.conf openssl-1.1.1n-patch/Configurations/10-main.conf
+--- openssl-1.1.1n/Configurations/10-main.conf	2022-04-26 15:51:59.383932969 +0300
++++ openssl-1.1.1n-patch/Configurations/10-main.conf	2022-04-26 15:53:06.237281606 +0300
+@@ -921,6 +921,7 @@
+ #### E2K Linux setups
+     "linux-e2k" => {
+         inherit_from     => [ "linux-generic64", asm("e2k_asm") ],
++        lib_cppflags     => add("-DL_ENDIAN"),
+     },
+ 
+ #### *BSD

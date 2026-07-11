@@ -1,0 +1,238 @@
+Subject: E2Kv7-AESCTR+GHASH stitch
+From: Alexander Troosh <trush@yandex.ru>
+
+1) Test of raw speed of AES-GCM on e8v7 proto (12.5 MHz):
+	
+for m in aes-128-gcm aes-192-gcm aes-256-gcm
+do
+  openssl speed -evp $m 2>/dev/null | tail -1
+done
+
+                  16 bytes     64 bytes    256 bytes   1024 bytes   8192 bytes  16384 bytes
+aes-128-gcm        718.71k     1839.57k     4777.64k     8408.75k     9843.61k    10514.01k
+aes-192-gcm        690.14k     1769.94k     4647.08k     7830.53k     9407.15k     9480.87k
+aes-256-gcm        677.34k     1691.39k     4393.13k     7315.11k     8710.83k     8770.90k
+=>
+                  16 bytes     64 bytes    256 bytes   1024 bytes   8192 bytes  16384 bytes
+aes-128-gcm        722.58k     1789.15k     5976.42k    10739.64k    15095.88k    16481.09k
+aes-192-gcm        682.42k     1994.80k     5686.80k    10345.84k    14425.04k    14696.45k
+aes-256-gcm        632.85k     1600.49k     4942.17k    10379.95k    15357.27k    15870.63k
+
+2) Speed of decrypt ("openssl speed -decrypt -evp $m 2>/dev/null"):
+
+                  16 bytes     64 bytes    256 bytes   1024 bytes   8192 bytes  16384 bytes
+aes-128-gcm        717.25k     2494.23k     6970.20k    12576.43k    16531.46k    16913.75k
+aes-192-gcm        708.31k     2430.27k     6854.57k    12502.36k    16506.88k    16902.83k
+aes-256-gcm        671.55k     2428.37k     6629.72k    11624.11k    14898.52k    15215.27k
+
+3) Speed of security channel (with openssh-9.1p1), e8v7-proto to x86-64 server with AES-NI:
+
+  for i in `ssh -Q cipher`
+  do
+    dd if=/dev/zero bs=1M count=100 2> /dev/null \
+    | /usr/bin/ssh -c $i root@x86server "(/usr/bin/time -p cat) > /dev/null" 2>&1 \
+    | grep real | tr , . | awk '{print "'$i': "100 / $2" MB/s" }'
+  done
+
+aes128-ctr:                    1.2577 MB/s
+aes192-ctr:                    1.5863 MB/s
+aes256-ctr:                    1.7280 MB/s
+aes128-gcm@openssh.com:        2.7293 MB/s
+aes256-gcm@openssh.com:        2.2936 MB/s
+chacha20-poly1305@openssh.com: 1.8222 MB/s
+=>
+aes128-ctr:                    1.6326 MB/s
+aes192-ctr:                    1.4080 MB/s
+aes256-ctr:                    1.5211 MB/s
+aes128-gcm@openssh.com:        3.0675 MB/s
+aes256-gcm@openssh.com:        2.5208 MB/s
+chacha20-poly1305@openssh.com: 1.6963 MB/s
+
+diff --git a/crypto/evp/e_aes.c b/crypto/evp/e_aes.c
+index 9319da9..6a8063d 100644
+--- a/crypto/evp/e_aes.c
++++ b/crypto/evp/e_aes.c
+@@ -2523,7 +2523,19 @@ void e2kv7_ctr32_encrypt_blocks_x4(const unsigned char *in,
+                                    unsigned char *out,
+                                    size_t blocks,
+                                    const void *key, const unsigned char *ivec);
+-#   define e2k_ctr32_encrypt_blocks e2kv7_ctr32_encrypt_blocks_x4
++#     define e2k_ctr32_encrypt_blocks e2kv7_ctr32_encrypt_blocks_x4
++
++size_t e2kv7_aes_gcm_encrypt(const unsigned char *in, unsigned char *out,
++                             size_t len, const void *key,
++                             unsigned char ivec[16], u64 *Xi);
++size_t e2kv7_aes_gcm_decrypt(const unsigned char *in, unsigned char *out,
++                             size_t len, const void *key,
++                             unsigned char ivec[16], u64 *Xi);
++
++#     define AES_gcm_encrypt e2kv7_aes_gcm_encrypt
++#     define AES_gcm_decrypt e2kv7_aes_gcm_decrypt
++
++#     define AES_GCM_ASM(gctx) (gctx->ctr==e2kv7_ctr32_encrypt_blocks_x4)
+ 
+ #   else
+ 
+@@ -2531,7 +2543,7 @@ void e2kv2_ctr32_encrypt_blocks_x2(const unsigned char *in,
+                                    unsigned char *out,
+                                    size_t blocks,
+                                    const void *key, const unsigned char *ivec);
+-#   define e2k_ctr32_encrypt_blocks e2kv2_ctr32_encrypt_blocks_x2
++#     define e2k_ctr32_encrypt_blocks e2kv2_ctr32_encrypt_blocks_x2
+ 
+ #   endif
+ # endif
+diff --git a/crypto/modes/gcm128.c b/crypto/modes/gcm128.c
+index 7923ea8..babb657 100644
+--- a/crypto/modes/gcm128.c
++++ b/crypto/modes/gcm128.c
+@@ -295,6 +295,149 @@ void e2kv7_ctr32_encrypt_blocks_x4(const void *in, void *out,
+     }
+ }
+ 
++size_t e2kv7_aes_gcm_encrypt(const unsigned char *in, unsigned char *out,
++                             size_t len, const void *key,
++                             unsigned char ivec[16], u64 *Xi)
++{
++    __v2di x = reverse_vector( ((__v2di *)Xi)[0] );
++    __v2di *Hp = &((__v2di *)Xi)[2];
++    __v2di Hp0 = Hp[0], Hp1 = Hp[1], Hp2 = Hp[2], Hp3 = Hp[3];
++
++    __v2di y0 = reverse_vector(*(__v2di *)ivec);
++    __v2di y1 = __builtin_e2k_qpaddd(y0, (__v2di){1LL, 0LL});
++    __v2di y2 = __builtin_e2k_qpaddd(y0, (__v2di){2LL, 0LL});
++    __v2di y3 = __builtin_e2k_qpaddd(y0, (__v2di){3LL, 0LL});
++
++    __v2di * __restrict__ input = (__v2di *)in;
++    __v2di * __restrict__ output = (__v2di *)out;
++
++    const AES_KEY *aes_key = (AES_KEY *)key;
++    const __v2di * __restrict__ rd_key = (__v2di *)aes_key->rd_key;
++    const int rounds = aes_key->rounds;
++    size_t blocks = len / 16, i;
++
++#pragma unroll(1)
++#pragma loop count(1000)
++    while(blocks >= 4)
++    {
++        __v2di m0 = input[0] ^ aes_encrypt_e2kv7(reverse_vector(y0), rd_key, rounds);
++        __v2di m1 = input[1] ^ aes_encrypt_e2kv7(reverse_vector(y1), rd_key, rounds);
++        __v2di m2 = input[2] ^ aes_encrypt_e2kv7(reverse_vector(y2), rd_key, rounds);
++        __v2di m3 = input[3] ^ aes_encrypt_e2kv7(reverse_vector(y3), rd_key, rounds);
++
++        output[0] = m0;
++        output[1] = m1;
++        output[2] = m2;
++        output[3] = m3;
++
++        x ^= reverse_vector(m0);
++        x = gcm_multiply_x4(Hp0, Hp1, Hp2, Hp3,
++                            reverse_vector(m3),
++                            reverse_vector(m2),
++                            reverse_vector(m1),
++                            x);
++
++        y0 = __builtin_e2k_qpaddd(y0, (__v2di){4LL, 0LL});
++        y1 = __builtin_e2k_qpaddd(y1, (__v2di){4LL, 0LL});
++        y2 = __builtin_e2k_qpaddd(y2, (__v2di){4LL, 0LL});
++        y3 = __builtin_e2k_qpaddd(y3, (__v2di){4LL, 0LL});
++
++        input += 4;
++        output += 4;
++        blocks -= 4;
++    }
++
++#pragma loop count(3)
++    for(i=0; i < blocks; i++)
++    {
++        __v2di m0 = input[i] ^ aes_encrypt_e2kv7(reverse_vector(y0), rd_key, rounds);
++
++        output[i] = m0;
++
++        x ^= reverse_vector(m0);
++        x = gcm_multiply(Hp0, x);
++
++        y0 = __builtin_e2k_qpaddd(y0, (__v2di){1LL, 0LL});
++    }
++
++    *(__v2di *)ivec = reverse_vector(y0);
++    ((__v2di *)Xi)[0] = reverse_vector(x);
++
++    return len & ~(16-1);
++}
++
++size_t e2kv7_aes_gcm_decrypt(const unsigned char *in, unsigned char *out,
++                             size_t len, const void *key,
++                             unsigned char ivec[16], u64 *Xi)
++{
++    __v2di x = reverse_vector( ((__v2di *)Xi)[0] );
++    __v2di *Hp = &((__v2di *)Xi)[2];
++    __v2di Hp0 = Hp[0], Hp1 = Hp[1], Hp2 = Hp[2], Hp3 = Hp[3];
++
++    __v2di y0 = reverse_vector(*(__v2di *)ivec);
++    __v2di y1 = __builtin_e2k_qpaddd(y0, (__v2di){1LL, 0LL});
++    __v2di y2 = __builtin_e2k_qpaddd(y0, (__v2di){2LL, 0LL});
++    __v2di y3 = __builtin_e2k_qpaddd(y0, (__v2di){3LL, 0LL});
++
++    __v2di * __restrict__ input = (__v2di *)in;
++    __v2di * __restrict__ output = (__v2di *)out;
++
++    const AES_KEY *aes_key = (AES_KEY *)key;
++    const __v2di * __restrict__ rd_key = (__v2di *)aes_key->rd_key;
++    const int rounds = aes_key->rounds;
++    size_t blocks = len / 16, i;
++
++#pragma unroll(1)
++#pragma loop count(1000)
++    while(blocks >= 4)
++    {
++        __v2di m0 = input[0];
++        __v2di m1 = input[1];
++        __v2di m2 = input[2];
++        __v2di m3 = input[3];
++
++        x ^= reverse_vector(m0);
++        x = gcm_multiply_x4(Hp0, Hp1, Hp2, Hp3,
++                            reverse_vector(m3),
++                            reverse_vector(m2),
++                            reverse_vector(m1),
++                            x);
++
++        output[0] = m0 ^ aes_encrypt_e2kv7(reverse_vector(y0), rd_key, rounds);
++        output[1] = m1 ^ aes_encrypt_e2kv7(reverse_vector(y1), rd_key, rounds);
++        output[2] = m2 ^ aes_encrypt_e2kv7(reverse_vector(y2), rd_key, rounds);
++        output[3] = m3 ^ aes_encrypt_e2kv7(reverse_vector(y3), rd_key, rounds);
++
++        y0 = __builtin_e2k_qpaddd(y0, (__v2di){4LL, 0LL});
++        y1 = __builtin_e2k_qpaddd(y1, (__v2di){4LL, 0LL});
++        y2 = __builtin_e2k_qpaddd(y2, (__v2di){4LL, 0LL});
++        y3 = __builtin_e2k_qpaddd(y3, (__v2di){4LL, 0LL});
++
++        input += 4;
++        output += 4;
++        blocks -= 4;
++    }
++
++#pragma loop count(3)
++    for(i=0; i < blocks; i++)
++    {
++        __v2di m0 = input[i];
++
++        x ^= reverse_vector(m0);
++        x = gcm_multiply(Hp0, x);
++
++        output[i] = m0 ^ aes_encrypt_e2kv7(reverse_vector(y0), rd_key, rounds);
++
++        y0 = __builtin_e2k_qpaddd(y0, (__v2di){1LL, 0LL});
++    }
++
++    *(__v2di *)ivec = reverse_vector(y0);
++    ((__v2di *)Xi)[0] = reverse_vector(x);
++
++    return len & ~(16-1);
++}
++
++
+ #endif /* For E2Kv7+ only */
+ #endif /* For E2Kv6+ only */
+ 

@@ -1,0 +1,231 @@
+Subject: Preparing to AES+GCM scratch optimization (reducing read operations
+         by replacing in line with using  macro in loop)
+From: Alexander Troosh <trush@yandex.ru>
+
+Test of raw speed of GCM and CTR modes on e8v7 proto:
+
+for m in  aes-128-gcm aes-256-gcm aes-192-gcm \
+          aes-128-ctr aes-256-ctr aes-192-ctr
+do
+  openssl speed -evp $m 2>/dev/null | tail -1
+done
+
+aes-128-gcm        717.02k     1847.55k     4883.11k     8400.90k    10169.00k    10240.00k
+aes-256-gcm        703.57k     1700.89k     4416.51k     7350.27k     8751.79k     8825.51k
+aes-192-gcm        690.93k     1769.88k     4649.64k     8036.99k     9357.99k     9431.72k
+aes-128-ctr        812.06k     2407.15k     7579.31k    16278.53k    24502.27k    25411.58k
+aes-256-ctr        754.27k     2143.96k     6423.22k    12725.59k    17760.26k    18317.31k
+aes-192-ctr        773.46k     2274.37k     6966.53k    14695.46k    20449.96k    21244.59k
+
+
+diff --git a/crypto/evp/e_aes.c b/crypto/evp/e_aes.c
+index 82f4a6f..9319da9 100644
+--- a/crypto/evp/e_aes.c
++++ b/crypto/evp/e_aes.c
+@@ -2519,11 +2519,11 @@ const EVP_CIPHER *EVP_aes_##keylen##_##mode(void)			\
+ # if defined(__e2k__) && (__iset__ >= 2)
+ #   if __iset__ >= 7
+ 
+-void e2kv7_ctr32_encrypt_blocks(const unsigned char *in,
+-                                unsigned char *out,
+-                                size_t blocks,
+-                                const void *key, const unsigned char *ivec);
+-#   define e2k_ctr32_encrypt_blocks e2kv7_ctr32_encrypt_blocks
++void e2kv7_ctr32_encrypt_blocks_x4(const unsigned char *in,
++                                   unsigned char *out,
++                                   size_t blocks,
++                                   const void *key, const unsigned char *ivec);
++#   define e2k_ctr32_encrypt_blocks e2kv7_ctr32_encrypt_blocks_x4
+ 
+ #   else
+ 
+@@ -2688,7 +2688,7 @@ static int aes_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
+         ret = AES_set_encrypt_key(key, EVP_CIPHER_CTX_key_length(ctx) * 8,
+                                   &dat->ks.ks);
+         dat->block = (block128_f) AES_encrypt;
+-        dat->stream.ctr = (ctr128_f) e2kv7_ctr32_encrypt_blocks;
++        dat->stream.ctr = (ctr128_f) e2kv7_ctr32_encrypt_blocks_x4;
+     } else
+ #endif
+ #if defined(__e2k__) && (__iset__ >= 2)
+@@ -3046,7 +3046,7 @@ static int aes_gcm_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
+                 AES_set_encrypt_key(key, ctx->key_len * 8, &gctx->ks.ks);
+                 CRYPTO_gcm128_init(&gctx->gcm, &gctx->ks,
+                                    (block128_f) AES_encrypt);
+-                gctx->ctr = (ctr128_f) e2kv7_ctr32_encrypt_blocks;
++                gctx->ctr = (ctr128_f) e2kv7_ctr32_encrypt_blocks_x4;
+                 break;
+             } else
+ #endif
+diff --git a/crypto/modes/gcm128.c b/crypto/modes/gcm128.c
+index fb70d88..7923ea8 100644
+--- a/crypto/modes/gcm128.c
++++ b/crypto/modes/gcm128.c
+@@ -210,77 +210,57 @@ void gcm_ghash_clmul_e2kv6(u64 Xi[2], const u128 Htable[16],
+ 
+ #if defined(__e2k__) && (__iset__ >= 7)
+ 
+-static __attribute__ ((__always_inline__)) inline
+-__v2di aes_encrypt_e2kv7(const __v2di p, const __v2di enc_key[], const int rounds)
+-{
+-    __v2di x = p;
+-    __v2di z = {0LL, 0LL};
+-    __v2di prev_key, last_key;
+-
+-    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[0], z), z, z);
+-    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[1], z), z, z);
+-    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[2], z), z, z);
+-    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[3], z), z, z);
+-    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[4], z), z, z);
+-    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[5], z), z, z);
+-    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[6], z), z, z);
+-    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[7], z), z, z);
+-    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[8], z), z, z);
+-
+-    prev_key = enc_key[9];
+-    last_key = enc_key[10];
+-    if (rounds >= 12) {
+-        x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[9], z), z, z);
+-        x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[10], z), z, z);
+-        prev_key = enc_key[11];
+-        last_key = enc_key[12];
+-        if (rounds == 14) {
+-            x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[11], z), z, z);
+-            x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[12], z), z, z);
+-            prev_key = enc_key[13];
+-            last_key = enc_key[14];
+-        }
+-    }
+-
+-    x = __builtin_e2k_qpaesebgn(x, prev_key, z);
+-    return __builtin_e2k_qpxor(x, last_key);
+-}
+-
+-
+-static __attribute__ ((__always_inline__)) inline
+-__v2di incr(__v2di x)
+-{
+-    __v2di fmt = __builtin_e2k_qppackdl(0x0001020304050607LL, 0x08090a0b0c0d0e0fLL);
+-    x = __builtin_e2k_qppermb(x, x, fmt);
+-    x = __builtin_e2k_qpaddd(x, (__v2di){1LL, 0LL});
+-    return __builtin_e2k_qppermb(x, x, fmt);
+-}
+-
+-static __attribute__ ((__always_inline__)) inline
+-__v2di add4(__v2di x)
+-{
+-    __v2di fmt = __builtin_e2k_qppackdl(0x0001020304050607LL, 0x08090a0b0c0d0e0fLL);
+-    x = __builtin_e2k_qppermb(x, x, fmt);
+-    x = __builtin_e2k_qpaddd(x, (__v2di){4LL, 0LL});
+-    return __builtin_e2k_qppermb(x, x, fmt);
+-}
++#define aes_encrypt_e2kv7(p, enc_key, rounds) \
++({ \
++    __v2di x = p; \
++    __v2di z = {0LL, 0LL}; \
++    __v2di prev_key, last_key; \
++\
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[0], z), z, z); \
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[1], z), z, z); \
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[2], z), z, z); \
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[3], z), z, z); \
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[4], z), z, z); \
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[5], z), z, z); \
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[6], z), z, z); \
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[7], z), z, z); \
++    x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[8], z), z, z); \
++\
++    prev_key = enc_key[9]; \
++    last_key = enc_key[10]; \
++    if (rounds >= 12) { \
++        x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[9], z), z, z); \
++        x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[10], z), z, z); \
++        prev_key = enc_key[11]; \
++        last_key = enc_key[12]; \
++        if (rounds == 14) { \
++            x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[11], z), z, z); \
++            x = __builtin_e2k_qpaesltr(__builtin_e2k_qpaesebgn(x, enc_key[12], z), z, z); \
++            prev_key = enc_key[13]; \
++            last_key = enc_key[14]; \
++        } \
++    } \
++\
++    x = __builtin_e2k_qpaesebgn(x, prev_key, z); \
++    __builtin_e2k_qpxor(x, last_key); \
++})
+ 
+ /** Handles only complete blocks, operates on 32-bit counter and
+  *  does not update *ivec! (see crypto/modes/ctr128.c for details)
+  */
+-void e2kv7_ctr32_encrypt_blocks(const void *in, void *out,
+-                                size_t blocks, const AES_KEY *aes_key,
+-                                const char *ivec)
++void e2kv7_ctr32_encrypt_blocks_x4(const void *in, void *out,
++                                   size_t blocks, const AES_KEY *aes_key,
++                                   const char *ivec)
+ {
+-    __v2di y0 = *(__v2di *)ivec;
+-    __v2di y1 = incr(y0);
+-    __v2di y2 = incr(y1);
+-    __v2di y3 = incr(y2);
++    __v2di y0 = reverse_vector(*(__v2di *)ivec);
++    __v2di y1 = __builtin_e2k_qpaddd(y0, (__v2di){1LL, 0LL});
++    __v2di y2 = __builtin_e2k_qpaddd(y0, (__v2di){2LL, 0LL});
++    __v2di y3 = __builtin_e2k_qpaddd(y0, (__v2di){3LL, 0LL});
+ 
+     __v2di * __restrict__ input = (__v2di *)in;
+     __v2di * __restrict__ output = (__v2di *)out;
+ 
+-    __v2di * __restrict__ rd_key = (__v2di *)aes_key->rd_key;
++    const __v2di * __restrict__ rd_key = (__v2di *)aes_key->rd_key;
+     const int rounds = aes_key->rounds;
+     int i;
+ 
+@@ -288,25 +268,15 @@ void e2kv7_ctr32_encrypt_blocks(const void *in, void *out,
+ #pragma loop count(1000)
+     while(blocks >= 4)
+     {
+-        __v2di m0 = input[0];
+-        __v2di m1 = input[1];
+-        __v2di m2 = input[2];
+-        __v2di m3 = input[3];
+-
+-        m0 ^= aes_encrypt_e2kv7(y0, rd_key, rounds);
+-        m1 ^= aes_encrypt_e2kv7(y1, rd_key, rounds);
+-        m2 ^= aes_encrypt_e2kv7(y2, rd_key, rounds);
+-        m3 ^= aes_encrypt_e2kv7(y3, rd_key, rounds);
+-
+-        output[0] = m0;
+-        output[1] = m1;
+-        output[2] = m2;
+-        output[3] = m3;
+-
+-        y0 = add4(y0);
+-        y1 = add4(y1);
+-        y2 = add4(y2);
+-        y3 = add4(y3);
++        output[0] = input[0] ^ aes_encrypt_e2kv7(reverse_vector(y0), rd_key, rounds);
++        output[1] = input[1] ^ aes_encrypt_e2kv7(reverse_vector(y1), rd_key, rounds);
++        output[2] = input[2] ^ aes_encrypt_e2kv7(reverse_vector(y2), rd_key, rounds);
++        output[3] = input[3] ^ aes_encrypt_e2kv7(reverse_vector(y3), rd_key, rounds);
++
++        y0 = __builtin_e2k_qpaddd(y0, (__v2di){4LL, 0LL});
++        y1 = __builtin_e2k_qpaddd(y1, (__v2di){4LL, 0LL});
++        y2 = __builtin_e2k_qpaddd(y2, (__v2di){4LL, 0LL});
++        y3 = __builtin_e2k_qpaddd(y3, (__v2di){4LL, 0LL});
+ 
+         input += 4;
+         output += 4;
+@@ -318,10 +288,10 @@ void e2kv7_ctr32_encrypt_blocks(const void *in, void *out,
+     {
+         __v2di m = input[i];
+ 
+-        m ^= aes_encrypt_e2kv7(y0, rd_key, rounds);
++        m ^= aes_encrypt_e2kv7(reverse_vector(y0), rd_key, rounds);
+         output[i] = m;
+ 
+-        y0 = incr(y0);
++        y0 = __builtin_e2k_qpaddd(y0, (__v2di){1LL, 0LL});
+     }
+ }
+ 

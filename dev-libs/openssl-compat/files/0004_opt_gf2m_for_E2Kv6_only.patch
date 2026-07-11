@@ -1,0 +1,54 @@
+Optimization of ECDH and ECDSA (nistk/nistb), for E2Kv6+ only
+
+                             sign/s                      verify/s
+ 163 bits ecdsa (nistk163)   641,4 ->   829,5  129%      327,7 -> 425,7  130%
+ 233 bits ecdsa (nistk233)   440,7 ->   575,5  131%      225,7 -> 291,0  129%
+ 283 bits ecdsa (nistk283)   252,4 ->   384,2  152%      128,6 -> 200,1  156%
+ 409 bits ecdsa (nistk409)   123,7 ->   227,4  184%       63,9 -> 117,8  184%
+ 571 bits ecdsa (nistk571)    60,8 ->   118,6  195%       31,1 ->  61,3  197%
+ 163 bits ecdsa (nistb163)   593,5 ->   795,2  134%      304,3 -> 409,2  134%
+ 233 bits ecdsa (nistb233)   417,1 ->   557,1  134%      212,0 -> 282,7  133%
+ 283 bits ecdsa (nistb283)   235,1 ->   301,0  128%      118,0 -> 154,3  131%
+ 409 bits ecdsa (nistb409)   115,6 ->   214,5  186%       58,5 -> 110,6  189%
+ 571 bits ecdsa (nistb571)    55,2 ->   109,9  199%       28,0 ->  56,8  203%
+
+                                    op/s
+ 163 bits ecdh (nistk163)           693,2 ->   919,0  133%
+ 233 bits ecdh (nistk233)           479,0 ->   630,9  132%
+ 283 bits ecdh (nistk283)           268,2 ->   423,1  158%
+ 409 bits ecdh (nistk409)           131,8 ->   255,8  194%
+ 571 bits ecdh (nistk571)            65,2 ->   131,1  201%
+ 163 bits ecdh (nistb163)           659,6 ->   886,4  134%
+ 233 bits ecdh (nistb233)           448,8 ->   589,6  131%
+ 283 bits ecdh (nistb283)           250,7 ->   406,6  162%
+ 409 bits ecdh (nistb409)           122,1 ->   240,1  197%
+ 571 bits ecdh (nistb571)            58,6 ->    93,6  160%
+
+
+diff -ruN openssl-1.1.1n/crypto/bn/bn_gf2m.c openssl-1.1.1n-patch/crypto/bn/bn_gf2m.c
+--- openssl-1.1.1n/crypto/bn/bn_gf2m.c	2022-03-15 17:37:47.000000000 +0300
++++ openssl-1.1.1n-patch/crypto/bn/bn_gf2m.c	2022-04-26 15:52:16.100270255 +0300
+@@ -126,6 +126,15 @@
+ }
+ #  endif
+ #  if defined(SIXTY_FOUR_BIT) || defined(SIXTY_FOUR_BIT_LONG)
++ #if defined(__e2k__) && __iset__ >= 6
++
++static void bn_GF2m_mul_1x1(BN_ULONG *r1, BN_ULONG *r0, const BN_ULONG a,
++                            const BN_ULONG b)
++{
++    *r1 = __builtin_e2k_clmulh(a, b);
++    *r0 = __builtin_e2k_clmull(a, b);
++}
++ #else
+ static void bn_GF2m_mul_1x1(BN_ULONG *r1, BN_ULONG *r0, const BN_ULONG a,
+                             const BN_ULONG b)
+ {
+@@ -221,6 +230,7 @@
+     *r1 = h;
+     *r0 = l;
+ }
++ #endif
+ #  endif
+ 
+ /*

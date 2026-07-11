@@ -1,0 +1,43 @@
+Subject: port for e2k from openssl-1.1.1d
+Bug: 127479
+
+diff -ruN openssl-1.1.1n/Configurations/10-main.conf openssl-1.1.1n-patch/Configurations/10-main.conf
+--- openssl-1.1.1n/Configurations/10-main.conf	2022-03-15 17:37:47.000000000 +0300
++++ openssl-1.1.1n-patch/Configurations/10-main.conf	2022-04-26 15:45:56.488599051 +0300
+@@ -918,6 +918,11 @@
+         ranlib           => "true",
+     },
+ 
++#### E2K Linux setups
++    "linux-e2k" => {
++        inherit_from     => [ "linux-generic64" ],
++    },
++
+ #### *BSD
+     "BSD-generic32" => {
+         # As for thread cflag. Idea is to maintain "collective" set of
+diff -ruN openssl-1.1.1n/crypto/async/arch/async_posix.c openssl-1.1.1n-patch/crypto/async/arch/async_posix.c
+--- openssl-1.1.1n/crypto/async/arch/async_posix.c	2022-03-15 17:37:47.000000000 +0300
++++ openssl-1.1.1n-patch/crypto/async/arch/async_posix.c	2022-04-26 15:45:56.488599051 +0300
+@@ -40,7 +40,11 @@
+         if (fibre->fibre.uc_stack.ss_sp != NULL) {
+             fibre->fibre.uc_stack.ss_size = STACKSIZE;
+             fibre->fibre.uc_link = NULL;
++            #ifdef __e2k__
++            makecontext_e2k(&fibre->fibre, async_start_func, 0);
++            #else
+             makecontext(&fibre->fibre, async_start_func, 0);
++            #endif
+             return 1;
+         }
+     } else {
+@@ -53,6 +57,9 @@
+ {
+     OPENSSL_free(fibre->fibre.uc_stack.ss_sp);
+     fibre->fibre.uc_stack.ss_sp = NULL;
++    #ifdef __e2k__
++    freecontext_e2k(&fibre->fibre);
++    #endif
+ }
+ 
+ #endif

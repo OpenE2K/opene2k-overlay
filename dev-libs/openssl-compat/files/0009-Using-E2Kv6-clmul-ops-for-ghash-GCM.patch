@@ -1,0 +1,315 @@
+Subject: Using E2Kv6 ops CLMUL for ghash and GCM modes
+From: Alexander Troosh <trush@yandex.ru>
+Date: Wed, 4 Oct 2023 18:35:19 +0300
+
+1) Testing of raw speed on e2c3:
+
+  openssl speed ghash 2>/dev/null | tail -1
+  for m in aes-128-gcm aes-192-gcm aes-256-gcm \
+  do
+    openssl speed -evp $m 2>/dev/null | tail -1
+  done
+
+type             16 bytes     64 bytes    256 bytes   1024 bytes   8192 bytes  16384 bytes
+ghash           113324.21k   147952.83k   160196.27k   163573.42k   164596.39k   164659.20k
+aes-128-gcm      44871.63k    63260.29k    70092.29k    72085.85k    72663.04k    72701.27k
+aes-192-gcm      43031.67k    59720.62k    65775.36k    67523.58k    68026.37k    68064.60k
+aes-256-gcm      41355.06k    56552.30k    61949.53k    63495.85k    63944.02k    63968.60k
+=>
+ghash           218878.43k   530321.96k  1249934.68k  1891619.16k  2224682.33k  2252996.61k
+aes-128-gcm      56939.62k    91940.86k   113533.10k   120743.25k   123192.34k   122890.92k
+aes-192-gcm      53876.71k    84638.61k   102615.21k   108462.42k   110100.48k   110193.32k
+aes-256-gcm      51449.22k    78407.66k    93588.57k    98436.44k    99789.48k    99860.48k
+
+2) Speed of security channel
+
+  for i in `ssh -Q cipher`
+  do
+    dd if=/dev/zero bs=1M count=1000 2> /dev/null \
+    | /usr/bin/ssh -c $i root@localhost "(/usr/bin/time -p cat) > /dev/null" 2>&1 \
+    | grep real | tr , . | awk '{print "'$i': "1000 / $2" MB/s" }'
+  done
+
+aes128-ctr: 54.5256 MB/s
+aes192-ctr: 51.0465 MB/s
+aes256-ctr: 47.4383 MB/s
+aes128-gcm@openssh.com: 44.0529 MB/s
+aes256-gcm@openssh.com: 41.4079 MB/s
+chacha20-poly1305@openssh.com: 138.122 MB/s
+=>
+aes128-ctr: 61.5764 MB/s
+aes192-ctr: 56.5931 MB/s
+aes256-ctr: 53.4759 MB/s
+aes128-gcm@openssh.com: 78.0031 MB/s
+aes256-gcm@openssh.com: 72.0461 MB/s
+chacha20-poly1305@openssh.com: 134.048 MB/s
+
+
+diff --git a/crypto/modes/gcm128.c b/crypto/modes/gcm128.c
+index 8304eff..dca1240 100644
+--- a/crypto/modes/gcm128.c
++++ b/crypto/modes/gcm128.c
+@@ -11,6 +11,203 @@
+ #include "modes_local.h"
+ #include <string.h>
+ 
++#if (defined(__e2k__) && __iset__ >= 6)
++#define GHASH_ASM    /* Disable generic code */
++
++#include <stdint.h>
++#include <e2kintrin.h>
++
++static __attribute__ ((__always_inline__)) inline
++__v2di reverse_vector(const __v2di in)
++{
++    __v2di fmt = __builtin_e2k_qppackdl(0x0001020304050607LL, 0x08090a0b0c0d0e0fLL);
++    return __builtin_e2k_qppermb(in, in, fmt);
++}
++
++static __attribute__ ((__always_inline__)) inline
++__v2di gcm_reduce(__v2di B0, __v2di B1)
++{
++    __v2di X0 = __builtin_e2k_qpsrlw(B1, 31);
++    __v2di X1 = __builtin_e2k_qpsllw(B1,  1);
++    __v2di X2 = __builtin_e2k_qpsrlw(B0, 31);
++    __v2di X3 = __builtin_e2k_qpsllw(B0,  1);
++
++    X3 = X3 | __builtin_e2k_qpshufb(X0, X0, __builtin_e2k_qppackdl(0x8080808080808080LL, 0x808080800f0e0d0cLL))
++            | __builtin_e2k_qpshufb(X2, X2, __builtin_e2k_qppackdl(0x0b0a090807060504LL, 0x0302010080808080LL));
++
++    X1 = X1 | __builtin_e2k_qpshufb(X0, X0, __builtin_e2k_qppackdl(0x0b0a090807060504LL, 0x0302010080808080LL));
++
++    X0 = __builtin_e2k_qpsllw(X1, 31) ^
++         __builtin_e2k_qpsllw(X1, 30) ^
++         __builtin_e2k_qpsllw(X1, 25);
++
++    X1 ^= __builtin_e2k_qpshufb(X0, X0, __builtin_e2k_qppackdl(0x0302010080808080LL, 0x8080808080808080LL));
++
++    X0 = X1 ^ X3 ^
++         __builtin_e2k_qpshufb(X0, X0, __builtin_e2k_qppackdl(0x808080800f0e0d0cLL, 0x0b0a090807060504LL));
++
++    X0 ^= __builtin_e2k_qpsrlw(X1, 7) ^
++          __builtin_e2k_qpsrlw(X1, 2) ^
++          __builtin_e2k_qpsrlw(X1, 1);
++
++    return X0;
++}
++
++static __attribute__ ((__always_inline__)) inline
++__v2di gcm_multiply(__v2di H, __v2di x)
++{
++    uint64_t Hh = H[1], Hl = H[0];
++    uint64_t xh = x[1], xl = x[0];
++
++    uint64_t T0h = __builtin_e2k_clmulh(Hh, xh), T0l = __builtin_e2k_clmull(Hh, xh);
++    uint64_t T1h = __builtin_e2k_clmulh(Hh, xl), T1l = __builtin_e2k_clmull(Hh, xl);
++    uint64_t T2h = __builtin_e2k_clmulh(Hl, xh), T2l = __builtin_e2k_clmull(Hl, xh);
++    uint64_t T3h = __builtin_e2k_clmulh(Hl, xl), T3l = __builtin_e2k_clmull(Hl, xl);
++
++    T1h = __builtin_e2k_pxord(T1h, T2h);  T1l = __builtin_e2k_pxord(T1l, T2l);
++
++    T0l = __builtin_e2k_pxord(T0l, T1h);
++    T3h = __builtin_e2k_pxord(T3h, T1l);
++
++    return gcm_reduce(__builtin_e2k_qppackdl(T0h, T0l), __builtin_e2k_qppackdl(T3h, T3l));
++}
++
++static __attribute__ ((__always_inline__)) inline
++__v2di gcm_multiply_x4(__v2di H1, __v2di H2, __v2di H3, __v2di H4,
++                       __v2di X1, __v2di X2, __v2di X3, __v2di X4)
++{
++    /*
++     * Mutiply with delayed reduction, algorithm by Krzysztof Jankowski
++     * and Pierre Laurent of Intel
++     */
++
++   const uint64_t loh = (__builtin_e2k_clmulh(H1[0], X1[0]) ^ __builtin_e2k_clmulh(H2[0], X2[0])) ^
++                        (__builtin_e2k_clmulh(H3[0], X3[0]) ^ __builtin_e2k_clmulh(H4[0], X4[0]));
++   const uint64_t lol = (__builtin_e2k_clmull(H1[0], X1[0]) ^ __builtin_e2k_clmull(H2[0], X2[0])) ^
++                        (__builtin_e2k_clmull(H3[0], X3[0]) ^ __builtin_e2k_clmull(H4[0], X4[0]));
++
++   const uint64_t hih = (__builtin_e2k_clmulh(H1[1], X1[1]) ^ __builtin_e2k_clmulh(H2[1], X2[1])) ^
++                        (__builtin_e2k_clmulh(H3[1], X3[1]) ^ __builtin_e2k_clmulh(H4[1], X4[1]));
++   const uint64_t hil = (__builtin_e2k_clmull(H1[1], X1[1]) ^ __builtin_e2k_clmull(H2[1], X2[1])) ^
++                        (__builtin_e2k_clmull(H3[1], X3[1]) ^ __builtin_e2k_clmull(H4[1], X4[1]));
++   uint64_t Th, Tl;
++
++   Th = __builtin_e2k_clmulh(H1[0] ^ H1[1], X1[0] ^ X1[1]);
++   Tl = __builtin_e2k_clmull(H1[0] ^ H1[1], X1[0] ^ X1[1]);
++
++   Th ^= __builtin_e2k_clmulh(H2[0] ^ H2[1], X2[0] ^ X2[1]);
++   Tl ^= __builtin_e2k_clmull(H2[0] ^ H2[1], X2[0] ^ X2[1]);
++
++   Th ^= __builtin_e2k_clmulh(H3[0] ^ H3[1], X3[0] ^ X3[1]);
++   Tl ^= __builtin_e2k_clmull(H3[0] ^ H3[1], X3[0] ^ X3[1]);
++
++   Th ^= __builtin_e2k_clmulh(H4[0] ^ H4[1], X4[0] ^ X4[1]);
++   Tl ^= __builtin_e2k_clmull(H4[0] ^ H4[1], X4[0] ^ X4[1]);
++
++   Th ^= loh; Tl ^= lol;
++   Th ^= hih; Tl ^= hil;
++
++   return gcm_reduce(__builtin_e2k_qppackdl(hih, hil ^ Th),
++                     __builtin_e2k_qppackdl(loh ^ Tl, lol));
++}
++
++/*##############################################################################
++# void gcm_init_clmul_e2kv6(u128 Htable[16],const u64 H[2]);
++#
++# input:        128-bit H - secret parameter E(K,0^128)
++# output:       precomputed table filled with degrees of twisted H;
++#               H is twisted to handle reverse bitness of GHASH;
++#               only few of 16 slots of Htable[16] are used;
++#               data is opaque to outside world (which allows to
++#               optimize the code independently);
++#
++*/
++
++void gcm_init_clmul_e2kv6(u128 Htable[16], const u64 H[2])
++{
++    __v2di *Hp = (__v2di *)Htable;
++    __v2di H1 = (__v2di){H[1], H[0]};  /* H in LE, but need swap hi/lo */
++    __v2di H2 = gcm_multiply(H1, H1);
++    __v2di H3 = gcm_multiply(H1, H2);
++    __v2di H4 = gcm_multiply(H2, H2);
++
++    Hp[0] = H1;
++    Hp[1] = H2;
++    Hp[2] = H3;
++    Hp[3] = H4;
++}
++
++/*##############################################################################
++# void gcm_gmult_clmul_e2kv6(u64 Xi[2],const u128 Htable[16]);
++#
++# input:        Xi - current hash value;
++#               Htable - table precomputed in gcm_init_clmul_e2kv6;
++# output:       Xi - next hash value Xi;
++*/
++
++void __attribute__ ((__always_inline__)) inline
++gcm_gmult_clmul_e2kv6(u64 Xi[2], const u128 Htable[16])
++{
++    __v2di *Xp = (__v2di *)Xi;
++    __v2di *Hp = (__v2di *)Htable;
++    *Xp = reverse_vector(gcm_multiply(Hp[0], reverse_vector(*Xp)));
++}
++
++
++/*##############################################################################
++# void gcm_ghash_clmul_e2kv6(u64 Xi[2], const u128 Htable[16],
++#                            const u8 *inp,size_t len);
++#
++# input:        table precomputed in gcm_init_clmul_e2kv6;
++#               current hash value Xi;
++#               pointer to input data;
++#               length of input data in bytes, but divisible by block size;
++# output:       next hash value Xi;
++*/
++
++void gcm_ghash_clmul_e2kv6(u64 Xi[2], const u128 Htable[16],
++                           const u8 *inp, size_t len)
++{
++    __v2di *Hp = (__v2di *)Htable;
++    __v2di *input = (__v2di *)inp;
++    __v2di x;
++    size_t i, blocks = (len >> 4);
++
++    x = reverse_vector(*(__v2di *)Xi);
++
++    if(blocks >= 4)
++    {
++#pragma unroll(1)
++#pragma loop count(1000)
++        while(blocks >= 4)
++        {
++            __v2di m0 = reverse_vector(input[0]);
++            __v2di m1 = reverse_vector(input[1]);
++            __v2di m2 = reverse_vector(input[2]);
++            __v2di m3 = reverse_vector(input[3]);
++
++            x ^= m0;
++            x = gcm_multiply_x4(Hp[0], Hp[1], Hp[2], Hp[3], m3, m2, m1, x);
++
++            input += 4;
++            blocks -= 4;
++        }
++    }
++
++#pragma loop count(3)
++    for(i=0; i < blocks; i++)
++    {
++        __v2di m = reverse_vector(input[i]);
++
++        x ^= m;
++        x = gcm_multiply(Hp[0], x);
++    }
++
++    *(__v2di *)Xi = reverse_vector(x);
++}
++#endif /* For E2Kv6+ only */
++
++
+ #if defined(__GNUC__) && !defined(STRICT_ALIGNMENT)
+ typedef size_t size_t_aX __attribute((__aligned__(1)));
+ #else
+@@ -669,6 +866,16 @@ void gcm_gmult_4bit_x86(u64 Xi[2], const u128 Htable[16]);
+ void gcm_ghash_4bit_x86(u64 Xi[2], const u128 Htable[16], const u8 *inp,
+                         size_t len);
+ #  endif
++
++# elif defined(__e2k__) && (__iset__ >= 6)
++#  define GHASH_C_E2KV6
++#  define GCM_FUNCREF_4BIT
++
++void gcm_init_clmul_e2kv6(u128 Htable[16], const u64 H[2]);
++void gcm_gmult_clmul_e2kv6(u64 Xi[2], const u128 Htable[16]);
++void gcm_ghash_clmul_e2kv6(u64 Xi[2], const u128 Htable[16],
++                           const u8 *inp, size_t len);
++
+ # elif defined(__arm__) || defined(__arm) || defined(__aarch64__)
+ #  include "arm_arch.h"
+ #  if __ARM_MAX_ARCH__>=7
+@@ -783,6 +990,12 @@ void CRYPTO_gcm128_init(GCM128_CONTEXT *ctx, void *key, block128_f block)
+     ctx->gmult = gcm_gmult_4bit;
+     CTX__GHASH(gcm_ghash_4bit);
+ #  endif
++# elif  defined(GHASH_C_E2KV6)
++
++    gcm_init_clmul_e2kv6(ctx->Htable, ctx->H.u);
++    ctx->gmult = gcm_gmult_clmul_e2kv6;
++    CTX__GHASH(gcm_ghash_clmul_e2kv6);
++
+ # elif  defined(GHASH_ASM_ARM)
+ #  ifdef PMULL_CAPABLE
+     if (PMULL_CAPABLE) {
+diff --git a/crypto/modes/modes_local.h b/crypto/modes/modes_local.h
+index 8881416..ecf06c1 100644
+--- a/crypto/modes/modes_local.h
++++ b/crypto/modes/modes_local.h
+@@ -31,7 +31,7 @@ typedef unsigned char u8;
+ # if defined(__i386)    || defined(__i386__)    || \
+      defined(__x86_64)  || defined(__x86_64__)  || \
+      defined(_M_IX86)   || defined(_M_AMD64)    || defined(_M_X64) || \
+-     defined(__aarch64__)                       || \
++     defined(__aarch64__) || defined(__e2k__)   || \
+      defined(__s390__)  || defined(__s390x__)
+ #  undef STRICT_ALIGNMENT
+ # endif
+@@ -62,6 +62,13 @@ typedef u32 u32_a1;
+ #   define BSWAP4(x) ({ u32 ret_=(x);                   \
+                         asm ("bswapl %0"                \
+                         : "+r"(ret_));   ret_;          })
++
++/* Hm, ghash slow by 1.5%, aes-128-gcm slow by 0.67%
++#  elif defined(__e2k__)
++#    define BSWAP8(x) __builtin_bswap64(x)
++#    define BSWAP4(x) __builtin_bswap32(x)
++*/
++
+ #  elif defined(__aarch64__)
+ #   if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && \
+        __BYTE_ORDER__==__ORDER_LITTLE_ENDIAN__
+-- 
+2.11.0
+

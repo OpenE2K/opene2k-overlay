@@ -20,7 +20,10 @@ LICENSE="|| ( MIT Apache-2.0 )"
 SLOT="${PV}"
 IUSE+=" +clippy +doc +rustfmt rust-analyzer rust-src"
 
-RDEPEND+=" >=app-eselect/eselect-rust-20190311"
+RDEPEND+="
+	>=app-eselect/eselect-rust-20190311
+	dev-libs/openssl-compat:1.1.1
+"
 
 # prebuilt binaries, stripping them may break rustc
 RESTRICT="strip"
