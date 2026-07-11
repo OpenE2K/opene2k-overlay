@@ -1,8 +1,8 @@
 diff --git a/src/basic/architecture.c b/src/basic/architecture.c
-index c7d5b0d..43fcab3 100644
+index a711e8b..737c65f 100644
 --- a/src/basic/architecture.c
 +++ b/src/basic/architecture.c
-@@ -56,6 +56,9 @@ Architecture uname_architecture(void) {
+@@ -55,6 +55,9 @@ Architecture uname_architecture(void) {
  #elif defined(__cris__)
                  { "crisv32",    ARCHITECTURE_CRIS     },
  
@@ -12,7 +12,7 @@ index c7d5b0d..43fcab3 100644
  #elif defined(__i386__) || defined(__x86_64__)
                  { "x86_64",     ARCHITECTURE_X86_64   },
                  { "i686",       ARCHITECTURE_X86      },
-@@ -148,6 +151,7 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
+@@ -147,6 +150,7 @@ static const char *const architecture_table[_ARCHITECTURE_MAX] = {
          [ARCHITECTURE_ARC]         = "arc",
          [ARCHITECTURE_ARC_BE]      = "arc-be",
          [ARCHITECTURE_CRIS]        = "cris",
@@ -21,10 +21,10 @@ index c7d5b0d..43fcab3 100644
          [ARCHITECTURE_X86]         = "x86",
          [ARCHITECTURE_IA64]        = "ia64",
 diff --git a/src/basic/architecture.h b/src/basic/architecture.h
-index 26aa9f4..06a8d79 100644
+index ee91ea0..4b5cd3d 100644
 --- a/src/basic/architecture.h
 +++ b/src/basic/architecture.h
-@@ -18,6 +18,7 @@ typedef enum {
+@@ -18,6 +18,7 @@ typedef enum Architecture {
          ARCHITECTURE_ARM64_BE,
          ARCHITECTURE_ARM_BE,
          ARCHITECTURE_CRIS,
@@ -42,12 +42,33 @@ index 26aa9f4..06a8d79 100644
  #else
  #  error "Please register your architecture here!"
  #endif
+diff --git a/src/basic/list.h b/src/basic/list.h
+index d86002f..ac80945 100644
+--- a/src/basic/list.h
++++ b/src/basic/list.h
+@@ -150,6 +150,16 @@
+ #define LIST_FOREACH_BACKWARDS(name,i,start)                            \
+         _LIST_FOREACH_WITH_PREV(name, i, UNIQ_T(p, UNIQ), start)
+ 
++#ifdef __EDG__
++/* lcc typeof() drops const; cast the list head to match the iterator */
++#undef LIST_FOREACH_WITH_NEXT
++#define LIST_FOREACH_WITH_NEXT(name,i,n,head)                           \
++        for (typeof(*(head)) *n, *i = (typeof(*(head)) *) (head); i && (n = i->name##_next, true); i = n)
++#undef _LIST_FOREACH_WITH_PREV
++#define _LIST_FOREACH_WITH_PREV(name,i,p,start)                         \
++        for (typeof(*(start)) *p, *i = (typeof(*(start)) *) (start); i && (p = i->name##_prev, true); i = p)
++#endif
++
+ /* Iterate through all the members of the list p is included in, but skip over p */
+ #define LIST_FOREACH_OTHERS(name,i,p)                                   \
+         for (typeof(*(p)) *_p = (p), *i = ({                            \
 diff --git a/src/basic/log.h b/src/basic/log.h
-index 6af12c7..b8bc923 100644
+index 46a4339..6f43953 100644
 --- a/src/basic/log.h
 +++ b/src/basic/log.h
-@@ -231,12 +231,22 @@ void log_assert_failed_return(
-                 log_full_errno_zerook(level, _error, __VA_ARGS__);      \
+@@ -208,12 +208,22 @@ int log_dump_internal(
+                 log_full_errno_zerook(level, (int)_error, __VA_ARGS__); \
          })
  
 +#ifdef __EDG__
@@ -69,66 +90,75 @@ index 6af12c7..b8bc923 100644
  
  int log_emergency_level(void);
  
-diff --git a/src/basic/meson.build b/src/basic/meson.build
-index 2a2ae22..6212019 100644
---- a/src/basic/meson.build
-+++ b/src/basic/meson.build
-@@ -188,6 +188,7 @@ arch_list = [
-         'arc',
-         'arm',
-         'arm64',
-+        'e2k',
-         'i386',
-         'ia64',
-         'loongarch64',
-diff --git a/src/basic/missing_syscall_def.h b/src/basic/missing_syscall_def.h
-index cf31b65..a2cd890 100644
---- a/src/basic/missing_syscall_def.h
-+++ b/src/basic/missing_syscall_def.h
-@@ -12,6 +12,7 @@
- #  elif defined(__alpha__)
- #  elif defined(__arc__) || defined(__tilegx__)
- #  elif defined(__arm__)
-+#  elif defined(__e2k__)
- #  elif defined(__i386__)
- #  elif defined(__ia64__)
- #  elif defined(__loongarch_lp64)
-diff --git a/src/basic/missing_syscalls.py b/src/basic/missing_syscalls.py
-index 16498b5..4f309af 100644
---- a/src/basic/missing_syscalls.py
-+++ b/src/basic/missing_syscalls.py
-@@ -56,6 +56,8 @@ DEF_TEMPLATE_B = '''\
- #    define systemd_NR_{syscall} {nr_arc}
- #  elif defined(__arm__)
- #    define systemd_NR_{syscall} {nr_arm}
-+#  elif defined(__e2k__)
-+#    define systemd_NR_{syscall} {nr_e2k}
- #  elif defined(__i386__)
- #    define systemd_NR_{syscall} {nr_i386}
- #  elif defined(__ia64__)
-diff --git a/src/basic/syscalls-e2k.sh b/src/basic/syscalls-e2k.sh
-new file mode 100644
-index 0000000..7df6558
---- /dev/null
-+++ b/src/basic/syscalls-e2k.sh
-@@ -0,0 +1,12 @@
-+#!/bin/bash
-+src="${1:-/usr/include/asm/unistd.h}"
-+out="${2:-src/basic/syscalls-e2k.txt}"
+diff --git a/src/basic/nulstr-util.h b/src/basic/nulstr-util.h
+index 10235a9..8e9446b 100644
+--- a/src/basic/nulstr-util.h
++++ b/src/basic/nulstr-util.h
+@@ -11,6 +11,16 @@
+ #define NULSTR_FOREACH_PAIR(i, j, l)                             \
+         for (typeof(*(l)) *(i) = (l), *(j) = strchr((i), 0)+1; (i) && *(i); (i) = strchr((j), 0)+1, (j) = *(i) ? strchr((i), 0)+1 : (i))
+ 
++#ifdef __EDG__
++/* lcc typeof() drops const; cast (l) to match the iterator */
++#undef NULSTR_FOREACH
++#define NULSTR_FOREACH(i, l)                                    \
++        for (typeof(*(l)) *(i) = (typeof(*(l)) *) (l); (i) && *(i); (i) = strchr((i), 0)+1)
++#undef NULSTR_FOREACH_PAIR
++#define NULSTR_FOREACH_PAIR(i, j, l)                             \
++        for (typeof(*(l)) *(i) = (typeof(*(l)) *) (l), *(j) = strchr((i), 0)+1; (i) && *(i); (i) = strchr((j), 0)+1, (j) = *(i) ? strchr((i), 0)+1 : (i))
++#endif
 +
-+awk '/^#define __NR/ {
-+  # remove duplicate syscall
-+  if ($2 == "__NR_madvise1") next;
-+    sub("^__NR_","",$2); print $2 " " $3
-+}
-+# skip tail
-+$2 == "NR_syscalls" { exit }
-+' $src > $out
+ const char* nulstr_get(const char *nulstr, const char *needle);
+ static inline bool nulstr_contains(const char *nulstr, const char *needle) {
+         return nulstr_get(nulstr, needle);
+diff --git a/src/basic/process-util.h b/src/basic/process-util.h
+index 9d16055..cad369c 100644
+--- a/src/basic/process-util.h
++++ b/src/basic/process-util.h
+@@ -8,6 +8,10 @@
+ #include "basic-forward.h"
+ #include "string-util.h"
+
++#ifndef MCL_ONFAULT
++#  define MCL_ONFAULT 4
++#endif
++
+ #define procfs_file_alloca(pid, field)                                  \
+         ({                                                              \
+                 pid_t _pid_ = (pid);                                    \
+diff --git a/src/basic/strv.h b/src/basic/strv.h
+index 7249d8a..053e0e6 100644
+--- a/src/basic/strv.h
++++ b/src/basic/strv.h
+@@ -148,6 +148,23 @@ bool strv_overlap(char * const *a, char * const *b) _pure_;
+ #define STRV_FOREACH_PAIR(x, y, l)                      \
+         _STRV_FOREACH_PAIR(x, y, l, UNIQ_T(i, UNIQ))
+ 
++#ifdef __EDG__
++/* lcc typeof() drops const; cast (l) to match the iterator */
++#undef _STRV_FOREACH_BACKWARDS
++#define _STRV_FOREACH_BACKWARDS(s, l, h, i)                             \
++        for (typeof(*(l)) *s, *h = (typeof(*(l)) *) (l), *i = ({        \
++                                size_t _len = strv_length(h);           \
++                                _len > 0 ? h + _len - 1 : NULL;         \
++                        });                                             \
++             (s = i);                                                   \
++             i = PTR_SUB1(i, h))
++#undef _STRV_FOREACH_PAIR
++#define _STRV_FOREACH_PAIR(x, y, l, i)                          \
++        for (typeof(*(l)) *x, *y, *i = (typeof(*(l)) *) (l);    \
++             i && *(x = i) && *(y = i + 1);                     \
++             i += 2)
++#endif
++
+ char** strv_sort(char **l);
+ char** strv_sort_uniq(char **l);
+ void strv_print_full(char * const *l, const char *prefix);
 diff --git a/src/fundamental/macro-fundamental.h b/src/fundamental/macro-fundamental.h
-index 35758b5..7776f72 100644
+index e8757b1..156a1a0 100644
 --- a/src/fundamental/macro-fundamental.h
 +++ b/src/fundamental/macro-fundamental.h
-@@ -67,7 +67,11 @@
+@@ -88,7 +88,11 @@
  #define _printf_(a, b) __attribute__((__format__(printf, a, b)))
  #define _public_ __attribute__((__visibility__("default")))
  #define _pure_ __attribute__((__pure__))
@@ -140,9 +170,9 @@ index 35758b5..7776f72 100644
  #define _returns_nonnull_ __attribute__((__returns_nonnull__))
  #define _section_(x) __attribute__((__section__(x)))
  #define _sentinel_ __attribute__((__sentinel__))
-@@ -468,6 +472,15 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
-                 ((l) + (ali) - 1) & ~((ali) - 1),                      \
-                 VOID_0)
+@@ -234,6 +238,15 @@ assert_cc(sizeof(long long) == sizeof(intmax_t));
+                 ((_A) < (_B)) ? (_A) : (_B),                            \
+                 VOID_0))
  
 +#ifdef __EDG__
 +#undef ELEMENTSOF
@@ -153,36 +183,157 @@ index 35758b5..7776f72 100644
 +#define CONST_MIN(_A, _B) ((_A) < (_B) ? (_A) : (_B))
 +#endif
 +
- /* Similar to ((t *) (void *) (p)) to cast a pointer. The macro asserts that the pointer has a suitable
-  * alignment for type "t". This exists for places where otherwise "-Wcast-align=strict" would issue a
-  * warning or if you want to assert that the cast gives a pointer of suitable alignment. */
+ #define MIN3(x, y, z)                                   \
+         ({                                              \
+                 const typeof(x) _c = MIN(x, y);         \
+@@ -466,6 +479,16 @@ assert_cc(sizeof(dummy_t) == 0);
+                                 (i && m > 0) ? i + m : NULL;            \
+                         }); end && i < end; i++)
+ 
++#ifdef __EDG__
++/* lcc typeof() drops const off array elements; cast to match the iterator */
++#undef _FOREACH_ARRAY
++#define _FOREACH_ARRAY(i, array, num, m, end)                           \
++        for (typeof(array[0]) *i = (typeof(array[0]) *) (array), *end = ({ \
++                                typeof(num) m = (num);                  \
++                                (i && m > 0) ? i + m : NULL;            \
++                        }); end && i < end; i++)
++#endif
++
+ #define FOREACH_ARRAY(i, array, num)                                    \
+         _FOREACH_ARRAY(i, array, num, UNIQ_T(m, UNIQ), UNIQ_T(end, UNIQ))
+ 
+diff --git a/src/fundamental/strv-fundamental.h b/src/fundamental/strv-fundamental.h
+index 3abcdc4..bbd22c1 100644
+--- a/src/fundamental/strv-fundamental.h
++++ b/src/fundamental/strv-fundamental.h
+@@ -6,5 +6,12 @@
+ #define _STRV_FOREACH(s, l, i)                                          \
+         for (typeof(*(l)) *s, *i = (l); (s = i) && *i; i++)
+ 
++#ifdef __EDG__
++/* lcc typeof() drops const; cast (l) to match the iterator */
++#undef _STRV_FOREACH
++#define _STRV_FOREACH(s, l, i)                                          \
++        for (typeof(*(l)) *s, *i = (typeof(*(l)) *) (l); (s = i) && *i; i++)
++#endif
++
+ #define STRV_FOREACH(s, l)                      \
+         _STRV_FOREACH(s, l, UNIQ_T(i, UNIQ))
+diff --git a/src/include/override/sys/generate-syscall.py b/src/include/override/sys/generate-syscall.py
+index 1c90ad0..3649ae4 100755
+--- a/src/include/override/sys/generate-syscall.py
++++ b/src/include/override/sys/generate-syscall.py
+@@ -107,6 +107,7 @@ DEF_TEMPLATE_B = '''\
+ #    else
+ #      define systemd_NR_{syscall} {nr_x86_64}
+ #    endif
++#  elif defined(__e2k__)
+ #  elif !defined(missing_arch_template)
+ %s
+ #  endif
+diff --git a/src/libc/mount.c b/src/libc/mount.c
+index 1d324ef..935cc4a 100644
+--- a/src/libc/mount.c
++++ b/src/libc/mount.c
+@@ -1,6 +1,7 @@
+ /* SPDX-License-Identifier: LGPL-2.1-or-later */
+ 
+ #include <sys/mount.h>
++#include <errno.h>
+ #include <sys/syscall.h>
+ #include <unistd.h>
+ 
+@@ -42,6 +43,10 @@ int missing_mount_setattr(int dfd, const char *path, unsigned flags, struct moun
+ 
+ #if !HAVE_OPEN_TREE_ATTR
+ int missing_open_tree_attr(int dfd, const char *filename, unsigned int flags, struct mount_attr *attr, size_t size) {
++#ifdef __NR_open_tree_attr
+         return syscall(__NR_open_tree_attr, dfd, filename, flags, attr, size);
++#else
++        return errno = ENOSYS, -1;
++#endif
+ }
+ #endif
+diff --git a/src/libc/stat.c b/src/libc/stat.c
+index b283005..76ea5aa 100644
+--- a/src/libc/stat.c
++++ b/src/libc/stat.c
+@@ -1,11 +1,16 @@
+ /* SPDX-License-Identifier: LGPL-2.1-or-later */
+ 
+ #include <sys/stat.h>
++#include <errno.h>
+ #include <sys/syscall.h>
+ #include <unistd.h>
+ 
+ #if !HAVE_FCHMODAT2
+ int missing_fchmodat2(int dirfd, const char *path, mode_t mode, int flags) {
++#ifdef __NR_fchmodat2
+         return syscall(__NR_fchmodat2, dirfd, path, mode, flags);
++#else
++        return errno = ENOSYS, -1;
++#endif
+ }
+ #endif
+diff --git a/src/libc/xattr.c b/src/libc/xattr.c
+index 68fa97a..74e630e 100644
+--- a/src/libc/xattr.c
++++ b/src/libc/xattr.c
+@@ -1,17 +1,26 @@
+ /* SPDX-License-Identifier: LGPL-2.1-or-later */
+ 
++#include <errno.h>
+ #include <sys/syscall.h>
+ #include <sys/xattr.h>
+ #include <unistd.h>
+ 
+ #if !HAVE_SETXATTRAT
+ int missing_setxattrat(int fd, const char *path, int at_flags, const char *name, const struct xattr_args *args, size_t size) {
++#ifdef __NR_setxattrat
+         return syscall(__NR_setxattrat, fd, path, at_flags, name, args, size);
++#else
++        return errno = ENOSYS, -1;
++#endif
+ }
+ #endif
+ 
+ #if !HAVE_REMOVEXATTRAT
+ int missing_removexattrat(int fd, const char *path, int at_flags, const char *name) {
++#ifdef __NR_removexattrat
+         return syscall(__NR_removexattrat, fd, path, at_flags, name);
++#else
++        return errno = ENOSYS, -1;
++#endif
+ }
+ #endif
 diff --git a/src/shared/seccomp-util.c b/src/shared/seccomp-util.c
-index 75cf525..b205f21 100644
+index 500423e..39667ab 100644
 --- a/src/shared/seccomp-util.c
 +++ b/src/shared/seccomp-util.c
-@@ -2213,6 +2213,7 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
+@@ -2313,6 +2313,7 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
          else
                  any = true;
  
 +#ifdef __NR_fchmodat2
  #if defined(__SNR_fchmodat2)
-         r = seccomp_rule_add_exact(
+         r = sym_seccomp_rule_add_exact(
                          seccomp,
-@@ -2234,6 +2235,7 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
+@@ -2334,6 +2335,7 @@ static int seccomp_restrict_sxid(scmp_filter_ctx seccomp, mode_t m) {
                  log_debug_errno(r, "Failed to add filter for fchmodat2: %m");
          else
                  any = true;
 +#endif
  
-         r = seccomp_rule_add_exact(
+         r = sym_seccomp_rule_add_exact(
                          seccomp,
 diff --git a/src/test/test-load-fragment.c b/src/test/test-load-fragment.c
-index 038165a..7b113c1 100644
+index 69d2d05..5d42149 100644
 --- a/src/test/test-load-fragment.c
 +++ b/src/test/test-load-fragment.c
-@@ -574,6 +574,9 @@ TEST(install_printf, .sd_booted = true) {
+@@ -538,6 +538,9 @@ TEST(install_printf, .sd_booted = true) {
  
-         /* gcc-12.0.1-0.9.fc36.x86_64 insist that streq(â¦, NULL) is called,
+         /* gcc-12.0.1-0.9.fc36.x86_64 insist that streq(…, NULL) is called,
           * even though the call is inside of a conditional where the pointer is checked. :( */
 +#ifdef __EDG__
 +#pragma diag_suppress 1622
@@ -191,15 +342,15 @@ index 038165a..7b113c1 100644
  #pragma GCC diagnostic ignored "-Wnonnull"
          expect(RUNTIME_SCOPE_GLOBAL, i2, "%g", NULL);
 diff --git a/src/test/test-macro.c b/src/test/test-macro.c
-index c4c5337..6cabc70 100644
+index 7f7bf1c..4923442 100644
 --- a/src/test/test-macro.c
 +++ b/src/test/test-macro.c
-@@ -80,7 +80,9 @@ TEST(MAX) {
+@@ -73,7 +73,9 @@ TEST(MAX) {
          /* CONST_MAX returns (void) instead of a value if the passed arguments
           * are not of the same type or not constant expressions. */
          assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 10)), int));
 +#ifndef __EDG__
-         assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 1U)), void));
+         assert_cc(__builtin_types_compatible_p(typeof(CONST_MAX(1, 1U)), typeof(VOID_0)));
 +#endif
  
          assert_se(val1.a == 100);
