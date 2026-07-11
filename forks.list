@@ -13,6 +13,7 @@ media-libs/libilbc
 media-libs/libplacebo
 media-libs/mesa
 media-libs/openal
+media-libs/sbc
 media-libs/soxr
 media-libs/x264
 media-sound/lame
