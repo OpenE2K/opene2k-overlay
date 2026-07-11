@@ -8,6 +8,7 @@ dev-libs/libffi
 dev-libs/openssl
 dev-qt/qtbase
 media-gfx/graphite2
+media-libs/giflib
 media-libs/libilbc
 media-libs/libplacebo
 media-libs/mesa
