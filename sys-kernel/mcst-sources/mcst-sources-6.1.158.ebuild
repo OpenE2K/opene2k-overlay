@@ -31,6 +31,15 @@ src_unpack() {
 	unpack_fix_install_path
 }
 
+src_prepare() {
+	kernel-2_src_prepare
+	# lcc preprocessor trips on #*-cells in DTS, rename # to @
+	sed -i '/\#.*-cells/s/\#/@/' arch/e2k/boot/dts/{*.dts,include/*.dtsi} || die
+	# use system installkernel instead of the in-tree one
+	mv arch/e2k/boot/installkernel{,.orig} || die
+	ln -s /bin/installkernel arch/e2k/boot/installkernel || die
+}
+
 pkg_postinst() {
 	kernel-2_pkg_postinst
 	einfo "For more info on this patchset, and how to report problems, see:"

@@ -118,6 +118,11 @@ src_prepare() {
 			;;
 		e2k)
 			cp "arch/e2k/configs/defconfig" .config || die
+			# lcc preprocessor trips on #*-cells in DTS, rename # to @
+			sed -i '/\#.*-cells/s/\#/@/' arch/e2k/boot/dts/{*.dts,include/*.dtsi} || die
+			# use system installkernel instead of the in-tree one
+			mv arch/e2k/boot/installkernel{,.orig} || die
+			ln -s /bin/installkernel arch/e2k/boot/installkernel || die
 			;;
 		*)
 			die "Unsupported arch ${ARCH}"
