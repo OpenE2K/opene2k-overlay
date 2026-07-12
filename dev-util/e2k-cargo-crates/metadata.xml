@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<longdescription>
+		Vendors MCST/helce's e2k-patched Rust crate forks under
+		/usr/src/e2k-cargo-crates/. They are wired into cargo builds via a
+		paths override in the e2k profile's package.bashrc, per package.
+	</longdescription>
+</pkgmetadata>

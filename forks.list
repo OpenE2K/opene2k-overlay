@@ -6,6 +6,7 @@ dev-lang/python
 dev-lang/rust-bin
 dev-libs/libffi
 dev-libs/openssl
+dev-libs/openssl-compat
 dev-qt/qtbase
 media-gfx/graphite2
 media-libs/giflib

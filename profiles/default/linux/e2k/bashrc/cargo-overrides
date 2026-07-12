@@ -1,0 +1,13 @@
+# inject e2k crate forks (dev-util/e2k-cargo-crates) as [patch.crates-io]
+
+post_src_prepare() {
+	local frag=/usr/src/e2k-cargo-crates/patch.toml manifest=${S}/Cargo.toml
+	[[ -f ${frag} && -f ${manifest} ]] || return 0
+	grep -q '# e2k-cargo' "${manifest}" && return 0
+
+	if grep -q '^\[patch\.crates-io\]' "${manifest}"; then
+		awk 'NR==FNR{f=f $0 ORS; next} {print} /^\[patch\.crates-io\]/ && !d {printf "%s", f; d=1}' "${frag}" "${manifest}" > "${manifest}.e2k" && mv "${manifest}.e2k" "${manifest}"
+	else
+		{ printf '\n[patch.crates-io]\n'; cat "${frag}"; } >> "${manifest}"
+	fi
+}
